@@ -413,6 +413,65 @@ export function useMaterialPrice(materialType: string | undefined, token: Paymen
   }
 }
 
+// Hook para configurar precio de un material (solo owner)
+export function useSetMaterialPrice() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
+
+  /**
+   * Configura el precio de un material para un token específico
+   * @param materialType Tipo de material (ej: "plastico", "papel")
+   * @param token Token de pago (0=ETH, 1=USDC, 2=MXNB)
+   * @param pricePerKg Precio por kg en ETH (para ETH) o en unidades del token
+   * @param isETH Si es true, pricePerKg se interpreta como ETH y se convierte a wei
+   */
+  const setMaterialPrice = async (
+    materialType: string,
+    token: PaymentToken,
+    pricePerKg: string, // String porque puede ser decimal
+    isETH: boolean = token === PaymentToken.ETH
+  ) => {
+    try {
+      // Convertir el precio a wei si es ETH, o a unidades del token si es ERC20
+      // Para USDC (6 decimals): 2 USDC = 2000000
+      // Para MXNB (18 decimals): 1 MXNB = 1000000000000000000
+      const priceInWei = isETH
+        ? parseEther(pricePerKg)
+        : token === PaymentToken.USDC
+        ? parseUnits(pricePerKg, 6) // USDC tiene 6 decimals
+        : parseEther(pricePerKg) // MXNB probablemente tiene 18 decimals como ETH
+
+      console.log('🔧 Configurando precio:', {
+        materialType,
+        token,
+        pricePerKg,
+        priceInWei: priceInWei.toString(),
+      })
+
+      await writeContract({
+        address: RECYCLING_CONTRACT_ADDRESS,
+        abi: RECYCLING_CONTRACT_ABI,
+        functionName: 'setMaterialPrice',
+        args: [materialType, token, priceInWei],
+        value: 0n, // Función nonpayable
+      })
+    } catch (err: any) {
+      console.error('Error setting material price:', err)
+      throw err
+    }
+  }
+
+  return {
+    setMaterialPrice,
+    hash,
+    isPending: isPending || isConfirming,
+    isSuccess,
+    error,
+  }
+}
+
 // Hook para obtener la lista de centros autorizados
 // Escucha eventos RecyclingCenterAdded y RecyclingCenterRemoved para mantener la lista actualizada
 export function useRecyclingCenters() {

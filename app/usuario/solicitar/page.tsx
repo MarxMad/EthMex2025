@@ -439,6 +439,15 @@ export default function SolicitarRecoleccionPage() {
               )}
             </Card>
 
+            {/* Debug info - solo en desarrollo */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+                <p>Debug: loading={loading.toString()}, isPending={isPending.toString()}, isConnected={isConnected?.toString()}</p>
+                <p>selectedCenter={selectedCenter ? 'Sí' : 'No'}, checkingCenter={checkingCenter.toString()}, isRecyclingCenter={isRecyclingCenter?.toString()}</p>
+                <p>isSuccess={isSuccess.toString()}, cantidad={formData.cantidad}, fecha={formData.fecha}, hora={formData.hora}, direccion={formData.direccion ? 'Sí' : 'No'}</p>
+              </div>
+            )}
+
             {/* Submit Button */}
             <Button 
               type="submit" 
@@ -450,11 +459,14 @@ export default function SolicitarRecoleccionPage() {
                 !isConnected || 
                 !selectedCenter || 
                 checkingCenter ||
-                !isRecyclingCenter || 
-                isSuccess
-                // Removido: !materialPrice || materialPrice === 0n
-                // Permitir intentar aunque el precio no esté configurado
-                // El contrato rechazará con mensaje claro si falta el precio
+                (selectedCenter && !checkingCenter && !isRecyclingCenter) || // Solo bloquear si ya terminó la verificación y NO es centro autorizado
+                isSuccess ||
+                !formData.cantidad || 
+                parseFloat(formData.cantidad || "0") <= 0 ||
+                !formData.fecha ||
+                !formData.hora ||
+                !formData.direccion ||
+                formData.direccion.trim() === ""
               }
             >
               {loading || isPending 
