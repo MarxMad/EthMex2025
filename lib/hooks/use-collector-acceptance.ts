@@ -53,9 +53,18 @@ export function useAcceptDelivery() {
     }
 
     // Calcular el valor a enviar si es ETH
+    // IMPORTANTE: Este valor se envía al contrato como msg.value
     let value: bigint = 0n
     if (paymentToken === PaymentToken.ETH) {
       value = paymentAmount
+      
+      console.log('💰 Preparando pago al contrato:', {
+        deliveryId: deliveryId.toString(),
+        paymentAmount: formatEther(paymentAmount),
+        paymentAmountWei: paymentAmount.toString(),
+        paymentToken: 'ETH',
+        valorAEnviar: formatEther(value),
+      })
       
       // Validar saldo de ETH
       if (balance) {
@@ -100,24 +109,36 @@ export function useAcceptDelivery() {
         enGwei: formatEther(gasWithMargin * BigInt(20000000000)), // Aproximación si gasPrice es 20 gwei
       })
       
-      // Enviar transacción al contrato con gas limit explícito
+      console.log('📤 Enviando transacción acceptDelivery al contrato:', {
+        contractAddress: RECYCLING_CONTRACT_ADDRESS,
+        functionName: 'acceptDelivery',
+        deliveryId: deliveryId.toString(),
+        value: value.toString(), // Este es el ETH que el recolector envía al contrato
+        valueFormatted: formatEther(value),
+        gasLimit: gasWithMargin.toString(),
+      })
+      
+      // IMPORTANTE: Esta función es payable, el campo 'value' envía ETH al contrato
+      // El contrato recibe msg.value y lo bloquea en escrow
       await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
-        functionName: 'acceptDelivery',
+        functionName: 'acceptDelivery', // Función payable que recibe el pago
         args: [deliveryId],
-        value: value, // Enviar ETH si es PaymentToken.ETH
+        value: value, // Enviar ETH al contrato (el recolector paga aquí)
         gas: gasWithMargin, // Limitar el gas para evitar estimaciones excesivas
       })
     } catch (gasError: any) {
       console.error('Error estimando gas:', gasError)
+      console.log('🔄 Intentando sin límite de gas explícito (fallback)...')
       // Si falla la estimación, intentar sin límite de gas (fallback)
+      // IMPORTANTE: value sigue siendo necesario para enviar el pago al contrato
       await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'acceptDelivery',
         args: [deliveryId],
-        value: value,
+        value: value, // CRÍTICO: El recolector debe enviar el pago aquí
       })
     }
 
