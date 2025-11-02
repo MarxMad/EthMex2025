@@ -2,10 +2,11 @@
 
 import { useWriteContract, useReadContract, useWaitForTransactionReceipt, useAccount, useWatchContractEvent, usePublicClient } from 'wagmi'
 import { parseEther, formatEther, parseUnits, encodeFunctionData, type Address } from 'viem'
+import { useBalance } from 'wagmi'
 import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, type Delivery, DeliveryStatus, PaymentToken } from '@/lib/contracts'
 import { useState, useEffect } from 'react'
 
-// Hook para crear una entrega (actualizado para V2)
+// Hook para crear una entrega (actualizado para V3)
 export function useCreateDelivery() {
   const { address } = useAccount()
   const publicClient = usePublicClient()
@@ -13,6 +14,7 @@ export function useCreateDelivery() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   })
+  const { data: balance } = useBalance({ address })
 
   /**
    * Crea una nueva entrega de material reciclable
@@ -56,10 +58,29 @@ export function useCreateDelivery() {
 
         value = parseEther(valueAmount)
         console.log('💰 Valor ETH a enviar:', formatEther(value), 'ETH')
+        
+        // Validar saldo de ETH ANTES de enviar la transacción
+        if (balance) {
+          // Necesitamos ETH para el pago + gas (aproximadamente)
+          // Agregar un pequeño margen para gas (por ejemplo, 0.001 ETH)
+          const gasBuffer = parseEther('0.001')
+          const totalRequired = value + gasBuffer
+          
+          if (balance.value < totalRequired) {
+            const shortfall = totalRequired - balance.value
+            throw new Error(
+              `Saldo insuficiente. Necesitas ${formatEther(totalRequired)} ETH ` +
+              `(${formatEther(value)} para el pago + ${formatEther(gasBuffer)} aprox. para gas), ` +
+              `pero solo tienes ${formatEther(balance.value)} ETH. ` +
+              `Falta: ${formatEther(shortfall)} ETH`
+            )
+          }
+        }
       } else {
         // Para tokens ERC20, no se envía ETH
         value = 0n
         console.log('💰 Pago con token ERC20 - no se envía ETH')
+        // TODO: Validar saldo y allowance de tokens ERC20 aquí cuando se implementen
       }
 
       // Validar que los parámetros sean correctos
@@ -71,29 +92,79 @@ export function useCreateDelivery() {
         throw new Error('Debe especificar un tipo de material')
       }
 
-      // Estimar gas antes de enviar (opcional, para debugging)
-      if (publicClient && paymentToken === PaymentToken.ETH) {
-        try {
+      // OPTIMIZACIÓN: Limitar el tamaño del metadata para reducir costos de gas
+      // Strings grandes en storage son muy costosos. Limitar a ~500 caracteres
+      if (metadata && metadata.length > 500) {
+        console.warn('⚠️ Metadata muy larga, truncando para reducir gas...')
+        metadata = metadata.substring(0, 500)
+      }
+      
+      console.log('📤 Enviando transacción...')
+      
+      // OPTIMIZACIÓN: Estimar gas antes de enviar para evitar diferencias entre wallets
+      // Algunas wallets sobreestiman el gas cuando ven arrays de storage que pueden crecer
+      // Al forzar una estimación precisa, todas las wallets usan el mismo valor
+      let gasEstimate: bigint | undefined
+      let maxFeePerGas: bigint | undefined
+      let maxPriorityFeePerGas: bigint | undefined
+      
+      try {
+        if (publicClient && address) {
+          // Primero, codificar los datos de la transacción
           const encodedData = encodeFunctionData({
             abi: RECYCLING_CONTRACT_ABI,
             functionName: 'createDelivery',
-            args: [normalizedCenter, materialType, amount, paymentToken, metadata || ''],
+            args: [
+              normalizedCenter,
+              materialType,
+              amount,
+              paymentToken,
+              metadata || '',
+            ],
           })
-
-          const gasEstimate = await publicClient.estimateGas({
+          
+          // Estimar gas con la transacción completa
+          gasEstimate = await publicClient.estimateGas({
             account: address,
             to: RECYCLING_CONTRACT_ADDRESS,
             data: encodedData,
-            value: paymentToken === PaymentToken.ETH ? value : 0n,
+            value: value,
           })
+          
+          // Agregar margen de seguridad del 25% (un poco más para arrays que pueden crecer)
+          // Esto evita que la transacción falle si el array crece durante la ejecución
+          gasEstimate = (gasEstimate * 125n) / 100n
+          
+          // Obtener sugerencias de fee del network para usar precios correctos
+          try {
+            const feeData = await publicClient.estimateFeesPerGas({
+              type: 'eip1559',
+            })
+            if (feeData.maxFeePerGas) {
+              maxFeePerGas = feeData.maxFeePerGas
+            }
+            if (feeData.maxPriorityFeePerGas) {
+              maxPriorityFeePerGas = feeData.maxPriorityFeePerGas
+            }
+          } catch (feeErr) {
+            console.warn('⚠️ No se pudieron obtener fees del network:', feeErr)
+            // Continuar sin fees específicos, la wallet los determinará
+          }
+          
           console.log('⛽ Gas estimado:', gasEstimate.toString())
-        } catch (gasErr: any) {
-          console.warn('⚠️ No se pudo estimar gas (puede ser normal):', gasErr?.message)
+          if (maxFeePerGas) {
+            console.log('💰 Max Fee Per Gas:', maxFeePerGas.toString())
+          }
         }
+      } catch (gasErr: any) {
+        console.warn('⚠️ No se pudo estimar gas, usando estimación automática de la wallet:', gasErr?.message)
+        // Continuar sin límite de gas - la wallet lo estimará
+        // Esto puede causar estimaciones altas en algunas wallets, pero es mejor que falle
       }
-
-      // Enviar la transacción
-      const result = await writeContract({
+      
+      // Enviar la transacción con estimación de gas y fees si están disponibles
+      // Esto fuerza a todas las wallets a usar los mismos valores, evitando discrepancias
+      const contractConfig: any = {
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'createDelivery',
@@ -105,7 +176,20 @@ export function useCreateDelivery() {
           metadata || '',
         ],
         value: value, // Enviar ETH si es PaymentToken.ETH, 0n si es token ERC20
-      })
+      }
+      
+      // Agregar gas limit si se estimó (esto fuerza a todas las wallets a usar el mismo valor)
+      if (gasEstimate) {
+        contractConfig.gas = gasEstimate
+      }
+      
+      // Agregar fees EIP-1559 si están disponibles (para redes que soportan EIP-1559)
+      if (maxFeePerGas && maxPriorityFeePerGas) {
+        contractConfig.maxFeePerGas = maxFeePerGas
+        contractConfig.maxPriorityFeePerGas = maxPriorityFeePerGas
+      }
+      
+      const result = await writeContract(contractConfig)
 
       console.log('✅ Transacción enviada, hash:', result)
       return result
@@ -113,14 +197,61 @@ export function useCreateDelivery() {
       console.error('❌ Error creating delivery:', err)
       console.error('Error completo:', JSON.stringify(err, null, 2))
       
+      // Mejorar mensajes de error para diferentes tipos de wallets
+      const errorMessage = err?.message || err?.shortMessage || ''
+      const errorCode = err?.code || err?.error?.code
+      
+      // Errores de saldo insuficiente
+      if (
+        errorMessage.includes('insufficient funds') || 
+        errorMessage.includes('Saldo insuficiente') ||
+        errorCode === 'INSUFFICIENT_FUNDS'
+      ) {
+        throw new Error(err.message || 'Saldo insuficiente. Verifica que tengas suficiente ETH para el pago y gas.')
+      }
+      
+      // Errores de rechazo del usuario
+      if (
+        errorMessage.includes('user rejected') || 
+        errorMessage.includes('User denied') ||
+        errorMessage.includes('User rejected') ||
+        errorCode === 4001 || // MetaMask user rejection
+        errorCode === 'ACTION_REJECTED'
+      ) {
+        throw new Error('Transacción cancelada por el usuario')
+      }
+      
+      // Errores de gas
+      if (
+        errorMessage.includes('gas') ||
+        errorMessage.includes('Gas') ||
+        errorCode === 'UNPREDICTABLE_GAS_LIMIT' ||
+        errorCode === 'OUT_OF_GAS'
+      ) {
+        throw new Error('Error estimando gas. Por favor, intenta nuevamente o verifica que el contrato esté correctamente desplegado.')
+      }
+      
+      // Errores del contrato (revert)
+      if (
+        errorMessage.includes('Invalid recycling center') ||
+        errorMessage.includes('Price not set') ||
+        errorMessage.includes('Amount must be greater than zero')
+      ) {
+        throw new Error(errorMessage)
+      }
+      
+      // Usar el mensaje corto de viem si está disponible
       if (err?.shortMessage) {
-        console.error('Short message:', err.shortMessage)
+        throw new Error(err.shortMessage)
       }
-      if (err?.cause) {
-        console.error('Error cause:', err.cause)
+      
+      // Mensaje genérico con más contexto
+      if (errorMessage) {
+        throw new Error(errorMessage)
       }
-
-      throw err
+      
+      // Último recurso
+      throw new Error('Error desconocido al crear la entrega. Verifica tu conexión, saldo y que el contrato esté correctamente desplegado.')
     }
   }
 

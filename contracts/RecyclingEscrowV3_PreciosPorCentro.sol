@@ -44,8 +44,8 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
     // Variables de estado
     mapping(address => bool) public recyclingCenters;
     mapping(uint256 => Delivery) public deliveries;
-    mapping(address => uint256[]) public userDeliveries;
-    mapping(address => uint256[]) public centerDeliveries;
+    // OPTIMIZACIÓN: Eliminados userDeliveries y centerDeliveries para reducir gas
+    // Las entregas se pueden obtener mediante eventos filtrados por dirección
     
     address public usdcToken;
     address public mxnbToken;
@@ -164,7 +164,8 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
         // Verificar y transferir pago según el token
         if (_paymentToken == PaymentToken.ETH) {
             require(msg.value >= requiredPayment, "Insufficient ETH payment");
-            totalEscrowedETH += msg.value;
+            // OPTIMIZACIÓN: Solo sumar el pago requerido, no todo el msg.value
+            totalEscrowedETH += requiredPayment;
             
             if (msg.value > requiredPayment) {
                 (bool refundSuccess, ) = payable(msg.sender).call{
@@ -207,8 +208,11 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
             metadata: _metadata
         });
 
-        userDeliveries[msg.sender].push(deliveryId);
-        centerDeliveries[_recyclingCenter].push(deliveryId);
+        // OPTIMIZACIÓN: Eliminadas las líneas que actualizaban arrays de storage
+        // userDeliveries[msg.sender].push(deliveryId);
+        // centerDeliveries[_recyclingCenter].push(deliveryId);
+        // Estas operaciones eran MUY costosas en gas. Las entregas se pueden obtener
+        // mediante eventos filtrados por dirección (user o recyclingCenter)
 
         emit DeliveryCreated(
             deliveryId,
