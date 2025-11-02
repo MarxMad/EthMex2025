@@ -237,12 +237,20 @@ export function useAddRecyclingCenter() {
 
   const addRecyclingCenter = async (centerAddress: `0x${string}`) => {
     try {
+      // Validar que la dirección sea válida antes de enviar
+      if (!centerAddress || !centerAddress.match(/^0x[a-fA-F0-9]{40}$/i)) {
+        throw new Error('Dirección inválida')
+      }
+
+      // Llamada simple: el contrato solo recibe la dirección del centro
+      // addRecyclingCenter(address _center) es nonpayable - NO envía ETH
       await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'addRecyclingCenter',
-        args: [centerAddress],
-        value: 0n, // Explícitamente NO enviar ETH - solo llamar a la función
+        args: [centerAddress.toLowerCase() as `0x${string}`], // Normalizar a lowercase
+        // NO incluir 'value' - dejar que wagmi lo maneje (será 0 por defecto)
+        // NO especificar 'gas' - dejar que wagmi estime automáticamente
       })
     } catch (err) {
       console.error('Error adding recycling center:', err)
