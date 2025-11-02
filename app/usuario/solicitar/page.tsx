@@ -59,11 +59,13 @@ export default function SolicitarRecoleccionPage() {
     setMounted(true)
   }, [])
 
+  const [showConfirmation, setShowConfirmation] = useState(false)
+
   useEffect(() => {
     if (isSuccess) {
-      router.push("/usuario/dashboard")
+      setShowConfirmation(true)
     }
-  }, [isSuccess, router])
+  }, [isSuccess])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -219,21 +221,86 @@ export default function SolicitarRecoleccionPage() {
             </Alert>
           )}
 
-          {/* Success Message - Transacción Confirmada */}
-          {isSuccess && (
-            <Alert className="mb-6 border-green-500/20 bg-green-500/5">
-              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertDescription>
-                <div className="space-y-1">
-                  <p className="font-medium text-foreground">¡Solicitud creada exitosamente!</p>
+          {/* Pantalla de Confirmación */}
+          {showConfirmation && isSuccess ? (
+            <Card className="p-8 text-center">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-10 h-10 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-3">
+                ¡Solicitud de Recolección Creada!
+              </h2>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                Tu solicitud de recolección ha sido registrada exitosamente en el contrato inteligente. 
+                El centro de reciclaje recibirá una notificación y podrás ver el estado en tu dashboard.
+              </p>
+
+              <div className="space-y-4 mb-6">
+                <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+                  <p className="text-sm text-foreground mb-2">
+                    <strong>Material:</strong> {formData.tipoMaterial}
+                  </p>
+                  <p className="text-sm text-foreground mb-2">
+                    <strong>Cantidad:</strong> {formData.cantidad} kg
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Tu solicitud de recolección ha sido registrada en el contrato. Serás redirigido al dashboard...
+                    <strong>Centro:</strong> {selectedCenter.slice(0, 8)}...{selectedCenter.slice(-6)}
                   </p>
                 </div>
-              </AlertDescription>
-            </Alert>
-          )}
+                
+                {hash && (
+                  <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                    <p className="text-sm font-semibold text-foreground mb-2">Transacción Confirmada</p>
+                    <div className="space-y-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Hash:</span>
+                        <code className="text-xs font-mono bg-background px-2 py-1 rounded border break-all">
+                          {hash}
+                        </code>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full sm:w-auto"
+                        asChild
+                      >
+                        <a 
+                          href={`https://sepolia.arbiscan.io/tx/${hash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2"
+                        >
+                          Ver en Arbiscan
+                          <ArrowRight className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => router.push("/usuario/dashboard")} className="flex-1">
+                  Ver Mis Solicitudes
+                </Button>
+                <Button onClick={() => {
+                  setShowConfirmation(false)
+                  setFormData({
+                    tipoMaterial: "plastico",
+                    cantidad: "",
+                    fecha: "",
+                    hora: "",
+                    direccion: "",
+                    notas: "",
+                  })
+                  setSelectedCenter("")
+                  router.push("/usuario/solicitar")
+                }} className="flex-1">
+                  Nueva Solicitud
+                </Button>
+              </div>
+            </Card>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Selección de Centro de Reciclaje */}
             <RecyclingCenterSelector

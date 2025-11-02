@@ -38,6 +38,9 @@ export default function RegistroCentroPage() {
   const [configuringPrices, setConfiguringPrices] = useState(false)
   const [priceConfigStatus, setPriceConfigStatus] = useState<Record<string, boolean>>({})
   const [priceInputs, setPriceInputs] = useState<Record<string, { eth: string, usdc: string, mxnb: string }>>({})
+  // Rastrear precios configurados exitosamente: "material-token" => true
+  const [configuredPrices, setConfiguredPrices] = useState<Record<string, boolean>>({})
+  const [lastConfiguredPrice, setLastConfiguredPrice] = useState<{ material: string, token: string } | null>(null)
   const [centerWallet, setCenterWallet] = useState("")
   const [errorMessage, setErrorMessage] = useState<string>("")
   const [formData, setFormData] = useState({
@@ -113,6 +116,11 @@ export default function RegistroCentroPage() {
     try {
       setErrorMessage("")
       const materialContractName = materialMapping[material] || material.toLowerCase()
+      const tokenName = token === PaymentToken.ETH ? "ETH" : token === PaymentToken.USDC ? "USDC" : "MXNB"
+      
+      // Guardar qué precio estamos configurando para mostrar confirmación después
+      setLastConfiguredPrice({ material, token: tokenName })
+      
       await setCenterMaterialPrice(
         centerWallet as `0x${string}`,
         materialContractName,
@@ -124,6 +132,7 @@ export default function RegistroCentroPage() {
       // El estado priceSetSuccess se actualizará automáticamente
     } catch (err: any) {
       console.error("Error setting price:", err)
+      setLastConfiguredPrice(null)
       if (err?.message?.includes("user rejected") || err?.message?.includes("User denied")) {
         setErrorMessage("Transacción cancelada. No se configuró el precio.")
       } else {
@@ -134,12 +143,17 @@ export default function RegistroCentroPage() {
 
   // Efecto para actualizar estado cuando un precio se configura exitosamente
   useEffect(() => {
-    if (priceSetSuccess && priceHash) {
-      // Marcar como configurado (simplificado - en producción podrías rastrear cada precio individualmente)
-      const key = `${priceHash}`
-      setPriceConfigStatus(prev => ({ ...prev, [key]: true }))
+    if (priceSetSuccess && priceHash && lastConfiguredPrice) {
+      // Marcar como configurado usando "material-token" como clave
+      const key = `${lastConfiguredPrice.material}-${lastConfiguredPrice.token}`
+      setConfiguredPrices(prev => ({ ...prev, [key]: true }))
+      
+      // Mostrar mensaje de éxito y limpiar después de 3 segundos
+      setTimeout(() => {
+        setLastConfiguredPrice(null)
+      }, 3000)
     }
-  }, [priceSetSuccess, priceHash])
+  }, [priceSetSuccess, priceHash, lastConfiguredPrice])
 
   const handleSubmit = async () => {
     if (!isConnected) {
@@ -841,10 +855,29 @@ export default function RegistroCentroPage() {
               )}
             </div>
 
-            {isSettingPrice && (
+            {isSettingPrice && lastConfiguredPrice && (
               <Alert className="mt-4">
                 <AlertDescription>
-                  Configurando precio en el contrato... Por favor espera.
+                  Configurando precio de {lastConfiguredPrice.material} en {lastConfiguredPrice.token} en el contrato... Por favor espera.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {priceSetSuccess && lastConfiguredPrice && (
+              <Alert className="mt-4 border-green-500/20 bg-green-500/10">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-700 dark:text-green-400">
+                  ✓ Precio de {lastConfiguredPrice.material} en {lastConfiguredPrice.token} configurado exitosamente en el contrato.
+                  {priceHash && (
+                    <a 
+                      href={`https://sepolia.arbiscan.io/tx/${priceHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-green-600 underline hover:text-green-700"
+                    >
+                      Ver transacción
+                    </a>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
