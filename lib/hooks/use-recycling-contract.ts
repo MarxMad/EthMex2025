@@ -895,27 +895,85 @@ export function usePendingDeliveries() {
       try {
         setIsLoading(true)
         const currentBlock = await publicClient.getBlockNumber()
-        const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n
+        
+        // Intentar buscar desde un rango más amplio (10,000 bloques) o desde el bloque 0
+        // Usar una estrategia de chunks para evitar límites de RPC
+        const searchRanges = [
+          { from: currentBlock > 10000n ? currentBlock - 10000n : 0n, to: currentBlock }, // Últimos 10k bloques
+          { from: 0n, to: currentBlock > 10000n ? currentBlock - 10000n : currentBlock }, // Resto si hay más
+        ]
 
-        // Obtener todos los eventos DeliveryCreated recientes
-        const logs = await publicClient.getLogs({
-          address: RECYCLING_CONTRACT_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'DeliveryCreated',
-            inputs: [
-              { type: 'uint256', name: 'deliveryId', indexed: true },
-              { type: 'address', name: 'user', indexed: true },
-              { type: 'address', name: 'recyclingCenter', indexed: true },
-              { type: 'string', name: 'materialType' },
-              { type: 'uint256', name: 'amount' },
-              { type: 'uint256', name: 'paymentAmount' },
-              { type: 'uint8', name: 'paymentToken' },
-            ],
-          },
-          fromBlock,
-          toBlock: 'latest',
-        }).catch(() => [])
+        const allLogs: any[] = []
+
+        // Buscar en chunks para evitar límites de RPC
+        for (const range of searchRanges) {
+          if (range.from >= range.to) continue
+
+          try {
+            // Intentar obtener eventos en este rango
+            const chunkLogs = await publicClient.getLogs({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              event: {
+                type: 'event',
+                name: 'DeliveryCreated',
+                inputs: [
+                  { type: 'uint256', name: 'deliveryId', indexed: true },
+                  { type: 'address', name: 'user', indexed: true },
+                  { type: 'address', name: 'recyclingCenter', indexed: true },
+                  { type: 'string', name: 'materialType' },
+                  { type: 'uint256', name: 'amount' },
+                  { type: 'uint256', name: 'paymentAmount' },
+                  { type: 'uint8', name: 'paymentToken' },
+                ],
+              },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }).catch(() => [])
+
+            allLogs.push(...chunkLogs)
+          } catch (error: any) {
+            // Si el rango es muy grande, intentar dividirlo en chunks más pequeños
+            if (error?.message?.includes('too large') || error?.message?.includes('range')) {
+              const chunkSize = 5000n
+              let chunkFrom = range.from
+              
+              while (chunkFrom < range.to) {
+                const chunkTo = chunkFrom + chunkSize > range.to ? range.to : chunkFrom + chunkSize
+                
+                try {
+                  const chunkLogs = await publicClient.getLogs({
+                    address: RECYCLING_CONTRACT_ADDRESS,
+                    event: {
+                      type: 'event',
+                      name: 'DeliveryCreated',
+                      inputs: [
+                        { type: 'uint256', name: 'deliveryId', indexed: true },
+                        { type: 'address', name: 'user', indexed: true },
+                        { type: 'address', name: 'recyclingCenter', indexed: true },
+                        { type: 'string', name: 'materialType' },
+                        { type: 'uint256', name: 'amount' },
+                        { type: 'uint256', name: 'paymentAmount' },
+                        { type: 'uint8', name: 'paymentToken' },
+                      ],
+                    },
+                    fromBlock: chunkFrom,
+                    toBlock: chunkTo,
+                  }).catch(() => [])
+
+                  allLogs.push(...chunkLogs)
+                } catch {
+                  // Ignorar errores en chunks individuales
+                }
+                
+                chunkFrom = chunkTo + 1n
+              }
+            } else {
+              console.warn('Error loading deliveries in range:', error)
+            }
+          }
+        }
+
+        const logs = allLogs
 
         // Obtener detalles de cada entrega y filtrar solo las pendientes
         const deliveryPromises = logs.map(async (log: any) => {
@@ -975,6 +1033,18 @@ export function usePendingDeliveries() {
 
     loadPendingDeliveries()
   }, [publicClient])
+  
+  // Agregar dependencia de chainId para recargar cuando cambia la red
+  const { chainId } = useAccount()
+  
+  useEffect(() => {
+    // Recargar cuando cambia la red
+    if (chainId) {
+      setDeliveries([])
+      setIsLoading(true)
+      // Esto se recargará automáticamente por el useEffect anterior
+    }
+  }, [chainId])
 
   // Escuchar nuevos eventos en tiempo real - DeliveryCreated
   useWatchContractEvent({
@@ -1210,30 +1280,94 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
       try {
         setIsLoading(true)
         const currentBlock = await publicClient.getBlockNumber()
-        const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n
+        
+        // Intentar buscar desde un rango más amplio (10,000 bloques) o desde el bloque 0
+        // Usar una estrategia de chunks para evitar límites de RPC
+        const searchRanges = [
+          { from: currentBlock > 10000n ? currentBlock - 10000n : 0n, to: currentBlock }, // Últimos 10k bloques
+          { from: 0n, to: currentBlock > 10000n ? currentBlock - 10000n : currentBlock }, // Resto si hay más
+        ]
 
-        // Obtener eventos DeliveryCreated para este centro
-        const logs = await publicClient.getLogs({
-          address: RECYCLING_CONTRACT_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'DeliveryCreated',
-            inputs: [
-              { type: 'uint256', name: 'deliveryId', indexed: true },
-              { type: 'address', name: 'user', indexed: true },
-              { type: 'address', name: 'recyclingCenter', indexed: true },
-              { type: 'string', name: 'materialType' },
-              { type: 'uint256', name: 'amount' },
-              { type: 'uint256', name: 'paymentAmount' },
-              { type: 'uint8', name: 'paymentToken' },
-            ],
-          },
-          args: {
-            recyclingCenter: centerAddress.toLowerCase() as `0x${string}`,
-          },
-          fromBlock,
-          toBlock: 'latest',
-        }).catch(() => [])
+        const allLogs: any[] = []
+
+        // Buscar en chunks para evitar límites de RPC
+        for (const range of searchRanges) {
+          if (range.from >= range.to) continue
+
+          try {
+            // Intentar obtener eventos en este rango filtrados por centro
+            const chunkLogs = await publicClient.getLogs({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              event: {
+                type: 'event',
+                name: 'DeliveryCreated',
+                inputs: [
+                  { type: 'uint256', name: 'deliveryId', indexed: true },
+                  { type: 'address', name: 'user', indexed: true },
+                  { type: 'address', name: 'recyclingCenter', indexed: true },
+                  { type: 'string', name: 'materialType' },
+                  { type: 'uint256', name: 'amount' },
+                  { type: 'uint256', name: 'paymentAmount' },
+                  { type: 'uint8', name: 'paymentToken' },
+                ],
+              },
+              args: {
+                recyclingCenter: centerAddress.toLowerCase() as `0x${string}`,
+              },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }).catch(() => [])
+
+            allLogs.push(...chunkLogs)
+          } catch (error: any) {
+            // Si el rango es muy grande, intentar dividirlo en chunks más pequeños
+            if (error?.message?.includes('too large') || error?.message?.includes('range')) {
+              const chunkSize = 5000n
+              let chunkFrom = range.from
+              
+              while (chunkFrom < range.to) {
+                const chunkTo = chunkFrom + chunkSize > range.to ? range.to : chunkFrom + chunkSize
+                
+                try {
+                  const chunkLogs = await publicClient.getLogs({
+                    address: RECYCLING_CONTRACT_ADDRESS,
+                    event: {
+                      type: 'event',
+                      name: 'DeliveryCreated',
+                      inputs: [
+                        { type: 'uint256', name: 'deliveryId', indexed: true },
+                        { type: 'address', name: 'user', indexed: true },
+                        { type: 'address', name: 'recyclingCenter', indexed: true },
+                        { type: 'string', name: 'materialType' },
+                        { type: 'uint256', name: 'amount' },
+                        { type: 'uint256', name: 'paymentAmount' },
+                        { type: 'uint8', name: 'paymentToken' },
+                      ],
+                    },
+                    args: {
+                      recyclingCenter: centerAddress.toLowerCase() as `0x${string}`,
+                    },
+                    fromBlock: chunkFrom,
+                    toBlock: chunkTo,
+                  }).catch(() => [])
+
+                  allLogs.push(...chunkLogs)
+                } catch {
+                  // Ignorar errores en chunks individuales
+                }
+                
+                chunkFrom = chunkTo + 1n
+              }
+            } else {
+              console.warn('Error loading center deliveries in range:', error)
+            }
+          }
+        }
+
+        // Filtrar logs para este centro específico (por si acaso algunos chunks no filtraron correctamente)
+        const logs = allLogs.filter((log: any) => 
+          log.args.recyclingCenter?.toLowerCase() === centerAddress.toLowerCase()
+        )
 
         // Obtener detalles de cada entrega
         const deliveryPromises = logs.map(async (log: any) => {
