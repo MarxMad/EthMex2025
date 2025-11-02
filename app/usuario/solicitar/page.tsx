@@ -14,8 +14,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAccount } from "wagmi"
 import { useCreateDelivery, useMaterialPrice, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
-import { PaymentToken } from "@/lib/contracts"
+import { useTokenValidation, useApproveToken } from "@/lib/hooks/use-token-balance"
+import { PaymentToken, RECYCLING_CONTRACT_ADDRESS } from "@/lib/contracts"
 import { formatEther, parseEther } from "viem"
+import { useBalance } from "wagmi"
 import { Recycle, ArrowLeft, ArrowRight, Package, Calendar, MapPin, ImageIcon, AlertCircle, Wallet, CheckCircle2 } from "lucide-react"
 import { RecyclingCenterSelector } from "@/components/recycling-center-selector"
 import { Logo } from "@/components/logo"
@@ -53,6 +55,41 @@ export default function SolicitarRecoleccionPage() {
   const estimatedPayment = materialPrice && formData.cantidad && parseFloat(formData.cantidad) > 0
     ? (materialPrice * BigInt(Math.floor(parseFloat(formData.cantidad))))
     : 0n
+
+  // Validar balance y allowance para tokens ERC20
+  const { 
+    hasSufficientBalance: hasTokenBalance, 
+    hasSufficientAllowance: hasTokenAllowance,
+    needsApproval,
+    isLoading: loadingTokenValidation
+  } = useTokenValidation(
+    paymentToken !== PaymentToken.ETH ? paymentToken : null,
+    estimatedPayment,
+    RECYCLING_CONTRACT_ADDRESS
+  )
+
+  // Validar balance de ETH
+  const { data: ethBalance, isLoading: loadingEthBalance } = useBalance({
+    address,
+    query: {
+      enabled: paymentToken === PaymentToken.ETH && isConnected && !!address,
+    },
+  })
+
+  const hasEthBalance = paymentToken === PaymentToken.ETH && ethBalance
+    ? ethBalance.value >= estimatedPayment
+    : true
+
+  // Hook para aprobar tokens
+  const { approveToken, hash: approveHash, isPending: isApproving, isSuccess: approveSuccess } = useApproveToken()
+
+  // Refetch token validation cuando la aprobación es exitosa
+  useEffect(() => {
+    if (approveSuccess && paymentToken !== PaymentToken.ETH) {
+      // La validación se actualizará automáticamente
+      window.location.reload()
+    }
+  }, [approveSuccess, paymentToken])
 
   const [mounted, setMounted] = useState(false)
 
@@ -99,15 +136,41 @@ export default function SolicitarRecoleccionPage() {
       return
     }
 
-    // Advertencia si el precio no está configurado, pero permitir intentar la transacción
-    // El contrato validará y rechazará con un mensaje claro si el precio no está configurado
+    // Validar que el precio esté configurado
     if (!materialPrice || materialPrice === 0n) {
-      // Mostrar advertencia pero no bloquear
-      console.warn("⚠️ Precio no configurado para este material. El contrato rechazará la transacción si el precio no está configurado.")
-      // Continuar - el contrato validará
+      setErrorMessage("El precio para este material y método de pago no está configurado en el contrato. El centro debe configurar precios primero.")
+      return
     }
 
-    if (!formData.direccion || formData.direccion.trim() === "") {
+    // Validar balance según el tipo de pago
+    if (paymentToken === PaymentToken.ETH) {
+      if (loadingEthBalance) {
+        setErrorMessage("Verificando balance de ETH...")
+        return
+      }
+      if (!hasEthBalance) {
+        setErrorMessage(`Fondos insuficientes. Necesitas ${formatEther(estimatedPayment)} ETH pero tienes ${ethBalance ? formatEther(ethBalance.value) : '0'} ETH.`)
+        return
+      }
+    } else {
+      // Para tokens ERC20, validar balance y allowance
+      if (loadingTokenValidation) {
+        setErrorMessage("Verificando balance y permisos del token...")
+        return
+      }
+      if (!hasTokenBalance) {
+        const tokenName = paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'
+        setErrorMessage(`Fondos insuficientes. No tienes suficiente ${tokenName} para cubrir el pago estimado.`)
+        return
+      }
+      if (!hasTokenAllowance) {
+        const tokenName = paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'
+        setErrorMessage(`Permisos insuficientes. Debes aprobar al contrato para gastar tus ${tokenName}. Haz clic en "Aprobar ${tokenName}" primero.`)
+        return
+      }
+    }
+
+    if (!formData.direccion || formData.direccion.trim().length === 0) {
       setErrorMessage("Debes ingresar la dirección de recolección")
       return
     }
@@ -479,7 +542,9 @@ export default function SolicitarRecoleccionPage() {
                   <p className="text-2xl font-bold text-primary">
                       {paymentToken === PaymentToken.ETH 
                         ? `${formatEther(estimatedPayment)} ETH`
-                        : `${formatEther(estimatedPayment)} tokens`}
+                        : paymentToken === PaymentToken.USDC
+                        ? `${Number(estimatedPayment) / 1e6} USDC`
+                        : `${formatEther(estimatedPayment)} MXNB`}
                   </p>
                   ) : (
                     <p className="text-2xl font-bold text-muted-foreground">--</p>
@@ -491,13 +556,83 @@ export default function SolicitarRecoleccionPage() {
                     <p className="text-sm font-medium text-foreground">
                       {paymentToken === PaymentToken.ETH 
                         ? `${formatEther(materialPrice)} ETH/kg`
-                        : `${formatEther(materialPrice)} tokens/kg`}
+                        : paymentToken === PaymentToken.USDC
+                        ? `${Number(materialPrice) / 1e6} USDC/kg`
+                        : `${formatEther(materialPrice)} MXNB/kg`}
                     </p>
                   ) : (
                     <p className="text-sm font-medium text-red-600 dark:text-red-400">No configurado</p>
                   )}
                 </div>
               </div>
+
+              {/* Validaciones de Balance y Allowance */}
+              {paymentToken !== PaymentToken.ETH && estimatedPayment > 0n && (
+                <div className="mt-4 space-y-2">
+                  {loadingTokenValidation ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Verificando balance y permisos...
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      {!hasTokenBalance && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="text-xs">
+                            <strong>Fondos insuficientes.</strong> No tienes suficiente {paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'} para cubrir el pago estimado.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      {hasTokenBalance && !hasTokenAllowance && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="text-xs">
+                            <strong>Permisos insuficientes.</strong> Debes aprobar al contrato para gastar tus {paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'}. Haz clic en el botón "Aprobar {paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'}" abajo.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      {hasTokenBalance && hasTokenAllowance && (
+                        <Alert className="border-green-500/20 bg-green-500/5">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-xs text-green-700 dark:text-green-400">
+                            <strong>Balance y permisos verificados.</strong> Puedes proceder con la solicitud.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {paymentToken === PaymentToken.ETH && estimatedPayment > 0n && (
+                <div className="mt-4">
+                  {loadingEthBalance ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Verificando balance de ETH...
+                      </AlertDescription>
+                    </Alert>
+                  ) : !hasEthBalance && ethBalance ? (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        <strong>Fondos insuficientes.</strong> Necesitas {formatEther(estimatedPayment)} ETH pero tienes {formatEther(ethBalance.value)} ETH.
+                      </AlertDescription>
+                    </Alert>
+                  ) : hasEthBalance ? (
+                    <Alert className="border-green-500/20 bg-green-500/5">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-xs text-green-700 dark:text-green-400">
+                        <strong>Balance verificado.</strong> Tienes suficiente ETH para cubrir el pago.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              )}
               {(!materialPrice || materialPrice === 0n) && (
                 <Alert variant="destructive" className="mt-2">
                   <AlertCircle className="h-4 w-4" />
@@ -509,6 +644,70 @@ export default function SolicitarRecoleccionPage() {
                 </Alert>
               )}
             </Card>
+
+            {/* Botón para aprobar tokens ERC20 */}
+            {paymentToken !== PaymentToken.ETH && estimatedPayment > 0n && hasTokenBalance && !hasTokenAllowance && !loadingTokenValidation && (
+              <div className="space-y-2">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    Debes aprobar al contrato para gastar tus {paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'} antes de crear la solicitud.
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setErrorMessage("")
+                      // Aprobar una cantidad mayor para evitar múltiples aprobaciones
+                      const approvalAmount = estimatedPayment * 2n // Aprobar el doble para tener margen
+                      await approveToken(
+                        paymentToken as PaymentToken.USDC | PaymentToken.MXNB,
+                        RECYCLING_CONTRACT_ADDRESS,
+                        approvalAmount
+                      )
+                    } catch (err: any) {
+                      console.error("Error approving token:", err)
+                      if (err?.message?.includes("user rejected") || err?.message?.includes("User denied")) {
+                        setErrorMessage("Aprobación cancelada")
+                      } else {
+                        setErrorMessage(err?.message || "Error al aprobar el token")
+                      }
+                    }
+                  }}
+                  disabled={isApproving || !hasTokenBalance}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {isApproving ? (
+                    <>
+                      Aprobando {paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'}...
+                    </>
+                  ) : approveSuccess ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      {paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'} Aprobado
+                    </>
+                  ) : (
+                    <>
+                      Aprobar {paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'}
+                    </>
+                  )}
+                </Button>
+                {approveHash && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    <a 
+                      href={`https://sepolia.arbiscan.io/tx/${approveHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline"
+                    >
+                      Ver transacción de aprobación
+                    </a>
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Debug info - solo en desarrollo */}
             {process.env.NODE_ENV === 'development' && (
@@ -538,7 +737,9 @@ export default function SolicitarRecoleccionPage() {
                 !formData.hora ||
                 !formData.direccion ||
                 formData.direccion.trim().length === 0 ||
-                (!materialPrice || materialPrice === 0n) // Bloquear si el centro no tiene precio configurado
+                (!materialPrice || materialPrice === 0n) || // Bloquear si el centro no tiene precio configurado
+                (paymentToken === PaymentToken.ETH && (!hasEthBalance || loadingEthBalance)) || // Bloquear si no hay suficiente ETH
+                (paymentToken !== PaymentToken.ETH && (!hasTokenBalance || !hasTokenAllowance || loadingTokenValidation)) // Bloquear si no hay balance o allowance suficiente para tokens
               }
             >
               {loading || isPending 
