@@ -1,6 +1,9 @@
+'use client'
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { WalletConnect } from "@/components/web3/wallet-connect"
 import { Recycle, Truck, Building2, ArrowRight, Leaf, Users, DollarSign } from "lucide-react"
 
 export default function HomePage() {
@@ -25,6 +28,13 @@ export default function HomePage() {
             <Link href="#beneficios" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Beneficios
             </Link>
+            <WalletConnect />
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/centro/registro">
+                <Building2 className="w-4 h-4 mr-2" />
+                Ser Centro de Reciclaje
+              </Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href="/auth/login">Iniciar Sesión</Link>
             </Button>
@@ -55,6 +65,12 @@ export default function HomePage() {
             </Button>
             <Button size="lg" variant="outline" className="text-base bg-transparent" asChild>
               <Link href="/auth/registro">Ser Recolector</Link>
+            </Button>
+            <Button size="lg" variant="outline" className="text-base bg-transparent" asChild>
+              <Link href="/centro/registro">
+                <Building2 className="w-5 h-5 mr-2" />
+                Ser Centro de Reciclaje
+              </Link>
             </Button>
           </div>
         </div>

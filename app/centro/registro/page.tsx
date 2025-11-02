@@ -1,13 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useAccount } from "wagmi"
+import { useIsOwner, useAddRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 import {
   Recycle,
   ArrowLeft,
@@ -22,7 +27,13 @@ import {
 } from "lucide-react"
 
 export default function RegistroCentroPage() {
+  const router = useRouter()
+  const { address, isConnected } = useAccount()
+  const { isOwner, isLoading: checkingOwner } = useIsOwner()
+  const { addRecyclingCenter, isPending, isSuccess, error } = useAddRecyclingCenter()
   const [paso, setPaso] = useState(1)
+  const [centerWallet, setCenterWallet] = useState("")
+  const [errorMessage, setErrorMessage] = useState<string>("")
   const [formData, setFormData] = useState({
     nombreCentro: "",
     razonSocial: "",
@@ -65,10 +76,48 @@ export default function RegistroCentroPage() {
     }))
   }
 
-  const handleSubmit = () => {
-    // Aquí iría la lógica para enviar el formulario
-    setPaso(4)
+  // Efecto para manejar éxito de la transacción
+  useEffect(() => {
+    if (isSuccess) {
+      setPaso(4)
+    }
+  }, [isSuccess])
+
+  const handleSubmit = async () => {
+    if (!isConnected) {
+      setErrorMessage("Debes conectar tu wallet primero")
+      return
+    }
+
+    if (!centerWallet || !centerWallet.match(/^0x[a-fA-F0-9]{40}$/)) {
+      setErrorMessage("Debes ingresar una dirección de wallet válida (0x...)")
+      return
+    }
+
+    // Para la demo: permitir intentar la transacción
+    // El contrato validará si es owner o no
+    try {
+      setErrorMessage("")
+      // Llamar a la función del contrato - esto abrirá MetaMask para firmar
+      await addRecyclingCenter(centerWallet as `0x${string}`)
+      // El useEffect manejará el cambio de paso cuando isSuccess sea true
+    } catch (err: any) {
+      console.error("Error adding recycling center:", err)
+      
+      // Manejar diferentes tipos de errores
+      if (err?.message?.includes("user rejected") || err?.message?.includes("User denied")) {
+        setErrorMessage("Transacción cancelada. No se agregó el centro.")
+      } else if (err?.message?.includes("Only owner") || err?.message?.includes("OwnableUnauthorizedAccount")) {
+        setErrorMessage("Solo el owner del contrato puede agregar centros autorizados. Si eres el owner, verifica que estés usando la wallet correcta.")
+      } else if (err?.message?.includes("Center already authorized") || err?.message?.includes("already authorized")) {
+        setErrorMessage("Este centro ya está autorizado en el contrato.")
+      } else {
+        setErrorMessage(err?.message || "Error al agregar el centro. Verifica que la dirección sea válida y que tengas permisos.")
+      }
+    }
   }
+
+  // No bloquear completamente la página, solo mostrar advertencia si está verificado y no es owner
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,6 +141,25 @@ export default function RegistroCentroPage() {
       </header>
 
       <div className="container mx-auto px-4 py-6 max-w-3xl">
+        {/* Advertencia si no es owner pero está conectado y verificado */}
+        {isConnected && !checkingOwner && !isOwner && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="font-semibold">Solo el owner del contrato puede agregar centros autorizados.</p>
+                <p className="text-sm">
+                  Tu wallet conectada: <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                </p>
+                <p className="text-sm">
+                  Si eres el owner del contrato, asegúrate de estar usando la wallet correcta. 
+                  Si no eres el owner, contacta al administrador para agregar tu centro.
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Indicador de progreso */}
         {paso < 4 && (
           <div className="mb-8">
@@ -420,64 +488,146 @@ export default function RegistroCentroPage() {
           </Card>
         )}
 
-        {/* Paso 3: Documentación */}
+        {/* Paso 3: Documentación y Wallet Address */}
         {paso === 3 && (
           <Card className="p-6">
-            <h2 className="text-xl font-bold text-foreground mb-6">Documentación Requerida</h2>
-
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="font-medium text-foreground mb-1">Acta Constitutiva</p>
-                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                <Button variant="outline" size="sm">
-                  Seleccionar Archivo
-                </Button>
-              </div>
-
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="font-medium text-foreground mb-1">Comprobante de Domicilio</p>
-                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                <Button variant="outline" size="sm">
-                  Seleccionar Archivo
-                </Button>
-              </div>
-
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="font-medium text-foreground mb-1">Licencia de Funcionamiento</p>
-                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                <Button variant="outline" size="sm">
-                  Seleccionar Archivo
-                </Button>
-              </div>
-
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="font-medium text-foreground mb-1">Identificación Oficial del Representante</p>
-                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                <Button variant="outline" size="sm">
-                  Seleccionar Archivo
-                </Button>
-              </div>
+            <h2 className="text-xl font-bold text-foreground mb-6">Documentación y Wallet Address</h2>
+            
+            {/* Wallet Address del Centro - Requerido para agregar al contrato */}
+            <div className="mb-6">
+              <Label htmlFor="centerWallet" className="text-base font-semibold">
+                Dirección de Wallet del Centro * (Para autorización en blockchain)
+              </Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Esta es la dirección de wallet que se autorizará en el contrato inteligente para que el centro pueda recibir entregas.
+              </p>
+              <Input
+                id="centerWallet"
+                placeholder="0x..."
+                value={centerWallet}
+                onChange={(e) => {
+                  setCenterWallet(e.target.value)
+                  setErrorMessage("")
+                }}
+                className="mt-1 font-mono"
+                required
+              />
+              {centerWallet && !centerWallet.match(/^0x[a-fA-F0-9]{40}$/) && (
+                <p className="text-sm text-destructive mt-1">Formato inválido. Debe ser una dirección Ethereum válida (0x seguido de 40 caracteres hexadecimales)</p>
+              )}
             </div>
 
-            <div className="bg-muted/50 rounded-lg p-4 mt-6">
-              <p className="text-sm text-muted-foreground">
-                <strong className="text-foreground">Nota:</strong> Todos los documentos serán revisados por nuestro
-                equipo. El proceso de verificación puede tomar de 2 a 5 días hábiles.
-              </p>
+            {/* Mensajes de error */}
+            {errorMessage && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Mensaje de éxito - transacción enviada */}
+            {isPending && (
+              <Alert className="mb-4 border-primary/20 bg-primary/5">
+                <AlertCircle className="h-4 w-4 text-primary" />
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Transacción enviada</p>
+                    <p className="text-sm text-muted-foreground">
+                      Esperando confirmación en la blockchain... Por favor confirma la transacción en MetaMask.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Estado de conexión */}
+            {!isConnected && (
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Debes conectar tu wallet para agregar el centro al contrato. Solo el owner del contrato puede realizar esta acción.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Advertencia si está verificando */}
+            {isConnected && checkingOwner && (
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Verificando permisos del owner... Por favor espera.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="border-t pt-6 mb-6">
+              <h3 className="font-semibold text-foreground mb-4">Documentación Requerida</h3>
+
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium text-foreground mb-1">Acta Constitutiva</p>
+                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                  <Button variant="outline" size="sm">
+                    Seleccionar Archivo
+                  </Button>
+                </div>
+
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium text-foreground mb-1">Comprobante de Domicilio</p>
+                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                  <Button variant="outline" size="sm">
+                    Seleccionar Archivo
+                  </Button>
+                </div>
+
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium text-foreground mb-1">Licencia de Funcionamiento</p>
+                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                  <Button variant="outline" size="sm">
+                    Seleccionar Archivo
+                  </Button>
+                </div>
+
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="font-medium text-foreground mb-1">Identificación Oficial del Representante</p>
+                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                  <Button variant="outline" size="sm">
+                    Seleccionar Archivo
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-4 mt-6">
+                <p className="text-sm text-muted-foreground">
+                  <strong className="text-foreground">Nota:</strong> Todos los documentos serán revisados por nuestro
+                  equipo. El proceso de verificación puede tomar de 2 a 5 días hábiles.
+                </p>
+              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
-              <Button variant="outline" onClick={() => setPaso(2)} className="flex-1">
+              <Button variant="outline" onClick={() => setPaso(2)} className="flex-1" disabled={isPending}>
                 Atrás
               </Button>
-              <Button onClick={handleSubmit} className="flex-1">
-                Enviar Solicitud
+              <Button 
+                onClick={handleSubmit} 
+                className="flex-1" 
+                disabled={isPending || !isConnected || checkingOwner || !centerWallet || !centerWallet.match(/^0x[a-fA-F0-9]{40}$/)}
+              >
+                {isPending ? "Firmando transacción..." : isSuccess ? "¡Agregado!" : "Agregar al Contrato"}
               </Button>
             </div>
+            
+            {/* Información sobre el proceso */}
+            {isPending && (
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                Por favor, confirma la transacción en MetaMask. Este proceso puede tardar unos segundos.
+              </p>
+            )}
           </Card>
         )}
 
@@ -487,19 +637,34 @@ export default function RegistroCentroPage() {
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-10 h-10 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground mb-3">¡Solicitud Enviada!</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-3">
+              {isSuccess ? "¡Centro Agregado al Contrato!" : "Solicitud Enviada"}
+            </h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Tu solicitud para registrar el centro de reciclaje ha sido enviada exitosamente. Nuestro equipo revisará
-              la información y documentación en los próximos 2-5 días hábiles.
+              {isSuccess 
+                ? `El centro de reciclaje con dirección ${centerWallet.slice(0, 8)}...${centerWallet.slice(-6)} ha sido autorizado exitosamente en el contrato inteligente y ya puede recibir entregas.`
+                : "Tu solicitud para registrar el centro de reciclaje ha sido enviada exitosamente. Nuestro equipo revisará la información y documentación en los próximos 2-5 días hábiles."}
             </p>
-            <div className="bg-muted/50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-foreground mb-2">
-                <strong>Número de Solicitud:</strong> #RC-2025-{Math.floor(Math.random() * 10000)}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Recibirás un correo electrónico a <strong>{formData.email}</strong> con los siguientes pasos.
-              </p>
-            </div>
+            {isSuccess && (
+              <div className="bg-primary/10 rounded-lg p-4 mb-6 border border-primary/20">
+                <p className="text-sm text-foreground mb-2">
+                  <strong>Centro Autorizado:</strong> {centerWallet}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Este centro ahora puede recibir entregas a través del contrato inteligente.
+                </p>
+              </div>
+            )}
+            {!isSuccess && (
+              <div className="bg-muted/50 rounded-lg p-4 mb-6">
+                <p className="text-sm text-foreground mb-2">
+                  <strong>Número de Solicitud:</strong> #RC-2025-{Math.floor(Math.random() * 10000)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Recibirás un correo electrónico a <strong>{formData.email}</strong> con los siguientes pasos.
+                </p>
+              </div>
+            )}
             <Button asChild className="w-full">
               <Link href="/">Volver al Inicio</Link>
             </Button>

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,11 +11,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Recycle, ArrowLeft, Package, Calendar, MapPin, ImageIcon } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAccount } from "wagmi"
+import { useCreateDelivery, useMaterialPrice, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
+import { PaymentToken } from "@/lib/contracts"
+import { formatEther, parseEther } from "viem"
+import { Recycle, ArrowLeft, Package, Calendar, MapPin, ImageIcon, AlertCircle, Wallet, CheckCircle2 } from "lucide-react"
+import { RecyclingCenterSelector } from "@/components/recycling-center-selector"
 
 export default function SolicitarRecoleccionPage() {
   const router = useRouter()
+  const { address, isConnected } = useAccount()
+  const { createDelivery, isPending, isSuccess, error, hash } = useCreateDelivery()
+  const [errorMessage, setErrorMessage] = useState<string>("")
   const [loading, setLoading] = useState(false)
+  const [selectedCenter, setSelectedCenter] = useState<string>("")
+  const [paymentToken, setPaymentToken] = useState<PaymentToken>(PaymentToken.ETH)
+  
   const [formData, setFormData] = useState({
     tipoMaterial: "plastico",
     cantidad: "",
@@ -25,14 +37,126 @@ export default function SolicitarRecoleccionPage() {
     notas: "",
   })
 
+  const { price: materialPrice, isLoading: loadingPrice } = useMaterialPrice(
+    formData.tipoMaterial || undefined,
+    paymentToken
+  )
+  const { isRecyclingCenter, isLoading: checkingCenter } = useIsRecyclingCenter(
+    selectedCenter ? (selectedCenter as `0x${string}`) : undefined
+  )
+
+  // Calcular precio estimado: precio por kg * cantidad
+  const estimatedPayment = materialPrice && formData.cantidad && parseFloat(formData.cantidad) > 0
+    ? (materialPrice * BigInt(Math.floor(parseFloat(formData.cantidad))))
+    : 0n
+
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (isSuccess) {
+      router.push("/usuario/dashboard")
+    }
+  }, [isSuccess, router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setErrorMessage("")
 
-    // Simulación de envío
-    setTimeout(() => {
-      router.push("/usuario/dashboard")
-    }, 1500)
+    // Validaciones
+    if (!isConnected) {
+      setErrorMessage("Debes conectar tu wallet primero")
+      return
+    }
+
+    if (!selectedCenter) {
+      setErrorMessage("Debes seleccionar un centro de reciclaje")
+      return
+    }
+
+    // Esperar a que termine la verificación del centro
+    if (checkingCenter) {
+      setErrorMessage("Verificando centro de reciclaje...")
+      return
+    }
+
+    if (!isRecyclingCenter) {
+      setErrorMessage("El centro seleccionado no está autorizado en el contrato. Solo puedes crear entregas a centros autorizados.")
+      return
+    }
+
+    if (!formData.cantidad || parseFloat(formData.cantidad) <= 0) {
+      setErrorMessage("Debes ingresar una cantidad válida mayor a 0")
+      return
+    }
+
+    if (!materialPrice || materialPrice === 0n) {
+      setErrorMessage("El precio para este material y método de pago no está configurado en el contrato. Contacta al administrador.")
+      return
+    }
+
+    if (!formData.direccion || formData.direccion.trim() === "") {
+      setErrorMessage("Debes ingresar la dirección de recolección")
+      return
+    }
+
+    if (!formData.fecha || !formData.hora) {
+      setErrorMessage("Debes seleccionar fecha y hora de recolección")
+      return
+    }
+
+    try {
+      setLoading(true)
+      
+      // Crear metadata con información adicional
+      const metadata = JSON.stringify({
+        direccion: formData.direccion,
+        fecha: formData.fecha,
+        hora: formData.hora,
+        notas: formData.notas || "",
+      })
+
+      // Calcular el valor a enviar si es ETH
+      const amount = BigInt(Math.floor(parseFloat(formData.cantidad)))
+      const valueAmount = paymentToken === PaymentToken.ETH 
+        ? formatEther(estimatedPayment)
+        : undefined
+
+      // Llamar a la función del contrato
+      // Esto abrirá MetaMask para firmar la transacción
+      await createDelivery(
+        selectedCenter as `0x${string}`,
+        formData.tipoMaterial,
+        amount,
+        paymentToken,
+        metadata,
+        valueAmount
+      )
+      
+      // Si llegamos aquí, la transacción fue enviada
+      // El useEffect manejará la redirección cuando isSuccess sea true
+      
+    } catch (err: any) {
+      console.error("Error creating delivery:", err)
+      
+      // Manejar diferentes tipos de errores
+      if (err?.message?.includes("user rejected") || err?.message?.includes("User denied")) {
+        setErrorMessage("Transacción cancelada. No se creó la solicitud.")
+      } else if (err?.message?.includes("insufficient funds")) {
+        setErrorMessage("Fondos insuficientes. Verifica que tengas suficiente saldo para cubrir el pago estimado.")
+      } else if (err?.message?.includes("Invalid recycling center")) {
+        setErrorMessage("El centro seleccionado no está autorizado en el contrato.")
+      } else if (err?.message?.includes("Price not set")) {
+        setErrorMessage("El precio para este material y método de pago no está configurado.")
+      } else {
+        setErrorMessage(err?.message || "Error al crear la entrega. Verifica tu conexión y saldo, e intenta nuevamente.")
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -56,7 +180,62 @@ export default function SolicitarRecoleccionPage() {
 
       <div className="container mx-auto px-4 py-6 max-w-2xl">
         <Card className="p-6">
+          {/* Wallet Connection Alert */}
+          {mounted && !isConnected && (
+            <Alert className="mb-6">
+              <Wallet className="h-4 w-4" />
+              <AlertDescription>
+                Debes conectar tu wallet para crear una solicitud de recolección.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Error Messages */}
+          {errorMessage && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Success Message - Transacción Enviada */}
+          {hash && !isSuccess && (
+            <Alert className="mb-6 border-primary/20 bg-primary/5">
+              <AlertCircle className="h-4 w-4 text-primary" />
+              <AlertDescription>
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">Transacción enviada</p>
+                  <p className="text-sm text-muted-foreground">
+                    Esperando confirmación en la blockchain...
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Success Message - Transacción Confirmada */}
+          {isSuccess && (
+            <Alert className="mb-6 border-green-500/20 bg-green-500/5">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription>
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">¡Solicitud creada exitosamente!</p>
+                  <p className="text-sm text-muted-foreground">
+                    Tu solicitud de recolección ha sido registrada en el contrato. Serás redirigido al dashboard...
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Selección de Centro de Reciclaje */}
+            <RecyclingCenterSelector
+              value={selectedCenter}
+              onValueChange={setSelectedCenter}
+              required
+            />
+
             {/* Tipo de Material */}
             <div className="space-y-3">
               <Label className="flex items-center gap-2">
@@ -187,26 +366,103 @@ export default function SolicitarRecoleccionPage() {
               />
             </div>
 
+            {/* Método de Pago */}
+            <div className="space-y-2">
+              <Label>Método de Pago</Label>
+              <RadioGroup
+                value={paymentToken.toString()}
+                onValueChange={(value) => setPaymentToken(Number.parseInt(value) as PaymentToken)}
+              >
+                <div className="flex gap-3">
+                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer flex-1">
+                    <RadioGroupItem value={PaymentToken.ETH.toString()} id="eth" />
+                    <Label htmlFor="eth" className="cursor-pointer flex-1">
+                      ETH
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer flex-1 opacity-50">
+                    <RadioGroupItem value={PaymentToken.USDC.toString()} id="usdc" disabled />
+                    <Label htmlFor="usdc" className="cursor-pointer flex-1 text-muted-foreground">
+                      USDC (Próximamente)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer flex-1 opacity-50">
+                    <RadioGroupItem value={PaymentToken.MXNB.toString()} id="mxnb" disabled />
+                    <Label htmlFor="mxnb" className="cursor-pointer flex-1 text-muted-foreground">
+                      MXNB (Próximamente)
+                    </Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
             {/* Precio Estimado */}
             <Card className="p-4 bg-primary/5 border-primary/20">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Pago Estimado</p>
-                  <p className="text-2xl font-bold text-primary">
-                    ${formData.cantidad ? (Number.parseInt(formData.cantidad) * 8).toFixed(0) : "0"}
-                  </p>
+                  {loadingPrice ? (
+                    <p className="text-2xl font-bold text-primary">Calculando...</p>
+                  ) : estimatedPayment > 0n ? (
+                    <p className="text-2xl font-bold text-primary">
+                      {paymentToken === PaymentToken.ETH 
+                        ? `${formatEther(estimatedPayment)} ETH`
+                        : `${formatEther(estimatedPayment)} tokens`}
+                    </p>
+                  ) : (
+                    <p className="text-2xl font-bold text-muted-foreground">--</p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Precio por kg</p>
-                  <p className="text-sm font-medium text-foreground">$8.00</p>
+                  {materialPrice && materialPrice > 0n ? (
+                    <p className="text-sm font-medium text-foreground">
+                      {paymentToken === PaymentToken.ETH 
+                        ? `${formatEther(materialPrice)} ETH/kg`
+                        : `${formatEther(materialPrice)} tokens/kg`}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-medium text-muted-foreground">No configurado</p>
+                  )}
                 </div>
               </div>
+              {!materialPrice && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  El precio para este material aún no está configurado en el contrato.
+                </p>
+              )}
             </Card>
 
             {/* Submit Button */}
-            <Button type="submit" size="lg" className="w-full" disabled={loading}>
-              {loading ? "Enviando solicitud..." : "Solicitar Recolección"}
+            <Button 
+              type="submit" 
+              size="lg" 
+              className="w-full" 
+              disabled={
+                loading || 
+                isPending || 
+                !isConnected || 
+                !selectedCenter || 
+                checkingCenter ||
+                !isRecyclingCenter || 
+                isSuccess ||
+                !materialPrice ||
+                materialPrice === 0n
+              }
+            >
+              {loading || isPending 
+                ? "Firmando transacción..." 
+                : isSuccess 
+                ? "¡Solicitud creada!" 
+                : "Solicitar Recolección"}
             </Button>
+            
+            {/* Información adicional sobre el proceso */}
+            {isPending && (
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                Por favor, confirma la transacción en MetaMask. Este proceso puede tardar unos segundos.
+              </p>
+            )}
           </form>
         </Card>
       </div>

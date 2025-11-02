@@ -112,6 +112,23 @@ export default function CentroDashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-6 max-w-6xl">
+        {/* Botón para Registrar Nuevo Centro */}
+        <Card className="p-4 mb-6 bg-primary/5 border-primary/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-foreground mb-1">Gestionar Centros</h3>
+              <p className="text-sm text-muted-foreground">
+                Registra un nuevo centro de reciclaje autorizado en el contrato
+              </p>
+            </div>
+            <Button asChild className="bg-primary text-primary-foreground">
+              <Link href="/centro/registro">
+                Registrar Nuevo Centro
+              </Link>
+            </Button>
+          </div>
+        </Card>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
