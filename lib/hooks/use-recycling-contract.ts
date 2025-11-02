@@ -1018,6 +1018,33 @@ export function useDelivery(deliveryId: bigint | undefined) {
   }
 }
 
+// Hook para obtener el estado de una entrega
+export function useDeliveryStatus(deliveryId: bigint | undefined) {
+  const { delivery } = useDelivery(deliveryId)
+
+  const getStatusLabel = (status: DeliveryStatus | undefined): string => {
+    if (status === undefined) return 'Desconocido'
+    switch (status) {
+      case DeliveryStatus.Pending:
+        return 'Pendiente'
+      case DeliveryStatus.Validated:
+        return 'Validado'
+      case DeliveryStatus.Rejected:
+        return 'Rechazado'
+      case DeliveryStatus.Completed:
+        return 'Completado'
+      default:
+        return 'Desconocido'
+    }
+  }
+
+  return {
+    status: delivery?.status,
+    statusLabel: getStatusLabel(delivery?.status),
+    delivery,
+  }
+}
+
 // Hook para obtener entregas de un centro específico
 export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
   const publicClient = usePublicClient()
