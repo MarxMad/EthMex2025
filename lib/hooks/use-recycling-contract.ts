@@ -395,7 +395,12 @@ export function useAddRecyclingCenter() {
 }
 
 // Hook para obtener precio de un material para un token específico
-export function useMaterialPrice(materialType: string | undefined, token: PaymentToken) {
+// NOTA: V2 usa precios globales. V3 soportará precios por centro
+export function useMaterialPrice(
+  materialType: string | undefined, 
+  token: PaymentToken,
+  centerAddress?: `0x${string}` // Opcional: para V3 con precios por centro
+) {
   const { data, isLoading, error } = useReadContract({
     address: RECYCLING_CONTRACT_ADDRESS,
     abi: RECYCLING_CONTRACT_ABI,
@@ -411,6 +416,18 @@ export function useMaterialPrice(materialType: string | undefined, token: Paymen
     isLoading,
     error,
   }
+}
+
+// Hook para obtener precio específico de un centro (para V3)
+// Por ahora usa el precio global, pero preparado para V3
+export function useCenterMaterialPrice(
+  centerAddress: `0x${string}` | undefined,
+  materialType: string | undefined,
+  token: PaymentToken
+) {
+  // Por ahora retornamos el precio global ya que V2 no soporta precios por centro
+  // Cuando V3 esté desplegado, esto llamará a getMaterialPrice(center, material, token)
+  return useMaterialPrice(materialType, token)
 }
 
 // Hook para configurar precio de un material (solo owner)
