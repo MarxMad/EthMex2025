@@ -1,12 +1,14 @@
 'use client'
 
-import { useWriteContract, usePrepareWriteContract, useReadContract, useWaitForTransactionReceipt, useAccount, useWatchContractEvent, usePublicClient } from 'wagmi'
+import { useWriteContract, useReadContract, useWaitForTransactionReceipt, useAccount, useWatchContractEvent, usePublicClient } from 'wagmi'
 import { parseEther, formatEther, parseUnits, encodeFunctionData, type Address } from 'viem'
 import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, type Delivery, DeliveryStatus, PaymentToken } from '@/lib/contracts'
 import { useState, useEffect } from 'react'
 
 // Hook para crear una entrega (actualizado para V2)
 export function useCreateDelivery() {
+  const { address } = useAccount()
+  const publicClient = usePublicClient()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
@@ -30,27 +32,94 @@ export function useCreateDelivery() {
     valueAmount?: string // Solo para ETH
   ) => {
     try {
-      // El contrato calcula el precio automáticamente, pero necesitamos enviar value si es ETH
-      // Solo enviar value si es ETH y se proporciona un monto
-      const value = paymentToken === PaymentToken.ETH && valueAmount && parseFloat(valueAmount) > 0
-        ? parseEther(valueAmount)
-        : undefined // undefined en lugar de 0n para funciones payable cuando no es ETH
+      if (!address) {
+        throw new Error('Wallet no conectada')
+      }
 
-      await writeContract({
+      // Normalizar dirección del centro
+      const normalizedCenter = recyclingCenter.toLowerCase() as Address
+
+      console.log('🔍 Creando entrega:', {
+        recyclingCenter: normalizedCenter,
+        materialType,
+        amount: amount.toString(),
+        paymentToken,
+        valueAmount,
+      })
+
+      // Para ETH: calcular y enviar el valor correcto
+      let value: bigint | undefined = undefined
+      if (paymentToken === PaymentToken.ETH) {
+        if (!valueAmount || parseFloat(valueAmount) <= 0) {
+          throw new Error('Debe proporcionar un monto válido para pagos en ETH')
+        }
+
+        value = parseEther(valueAmount)
+        console.log('💰 Valor ETH a enviar:', formatEther(value), 'ETH')
+      } else {
+        // Para tokens ERC20, no se envía ETH
+        value = 0n
+        console.log('💰 Pago con token ERC20 - no se envía ETH')
+      }
+
+      // Validar que los parámetros sean correctos
+      if (amount <= 0n) {
+        throw new Error('La cantidad debe ser mayor a 0')
+      }
+
+      if (!materialType || materialType.trim() === '') {
+        throw new Error('Debe especificar un tipo de material')
+      }
+
+      // Estimar gas antes de enviar (opcional, para debugging)
+      if (publicClient && paymentToken === PaymentToken.ETH) {
+        try {
+          const encodedData = encodeFunctionData({
+            abi: RECYCLING_CONTRACT_ABI,
+            functionName: 'createDelivery',
+            args: [normalizedCenter, materialType, amount, paymentToken, metadata || ''],
+          })
+
+          const gasEstimate = await publicClient.estimateGas({
+            account: address,
+            to: RECYCLING_CONTRACT_ADDRESS,
+            data: encodedData,
+            value: paymentToken === PaymentToken.ETH ? value : 0n,
+          })
+          console.log('⛽ Gas estimado:', gasEstimate.toString())
+        } catch (gasErr: any) {
+          console.warn('⚠️ No se pudo estimar gas (puede ser normal):', gasErr?.message)
+        }
+      }
+
+      // Enviar la transacción
+      const result = await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'createDelivery',
         args: [
-          recyclingCenter.toLowerCase() as `0x${string}`, // Normalizar dirección
+          normalizedCenter,
           materialType,
           amount,
           paymentToken,
-          metadata || '', // Asegurar string vacío si es undefined
+          metadata || '',
         ],
-        ...(value !== undefined && { value }), // Solo incluir value si se define
+        value: value, // Enviar ETH si es PaymentToken.ETH, 0n si es token ERC20
       })
-    } catch (err) {
-      console.error('Error creating delivery:', err)
+
+      console.log('✅ Transacción enviada, hash:', result)
+      return result
+    } catch (err: any) {
+      console.error('❌ Error creating delivery:', err)
+      console.error('Error completo:', JSON.stringify(err, null, 2))
+      
+      if (err?.shortMessage) {
+        console.error('Short message:', err.shortMessage)
+      }
+      if (err?.cause) {
+        console.error('Error cause:', err.cause)
+      }
+
       throw err
     }
   }
