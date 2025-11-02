@@ -632,10 +632,6 @@ export function useRecyclingCenters() {
       try {
         const currentBlock = await publicClient.getBlockNumber()
         
-        // ESTRATEGIA MEJORADA: Buscar centros desde múltiples fuentes
-        // 1. Eventos RecyclingCenterAdded desde el bloque 0 (o desde el despliegue del contrato)
-        // 2. Extraer centros únicos de las entregas existentes (fallback)
-        
         console.log('🔍 Cargando centros de reciclaje...', {
           currentBlock: currentBlock.toString(),
           contractAddress: RECYCLING_CONTRACT_ADDRESS,
@@ -644,69 +640,97 @@ export function useRecyclingCenters() {
         const addedLogs: any[] = []
         const removedLogs: any[] = []
         
-        // Intentar obtener el bloque de despliegue del contrato (más eficiente que desde 0)
-        // Si falla, buscar desde el bloque 0
-        let fromBlock = 0n
+        // ESTRATEGIA MEJORADA: Buscar PRIMERO en bloques recientes (más rápido y confiable)
+        // Luego buscar en el historial si es necesario
+        
+        // Paso 1: Buscar en últimos 2000 bloques (muy rápido, captura centros recientes)
         try {
-          // Intentar obtener el código del contrato para determinar si existe
-          // Si el contrato fue desplegado recientemente, usar un rango más pequeño
-          // Pero por seguridad, buscar desde bastante atrás
-          fromBlock = currentBlock > 100000n ? currentBlock - 100000n : 0n // Últimos 100k bloques o desde 0
-        } catch {
-          fromBlock = 0n
+          const recentRange = currentBlock > 2000n ? currentBlock - 2000n : 0n
+          const recentAdded = await publicClient.getLogs({
+            address: RECYCLING_CONTRACT_ADDRESS,
+            event: {
+              type: 'event',
+              name: 'RecyclingCenterAdded',
+              inputs: [{ type: 'address', name: 'center', indexed: true }],
+            },
+            fromBlock: recentRange,
+            toBlock: currentBlock,
+          }).catch(() => [])
+
+          const recentRemoved = await publicClient.getLogs({
+            address: RECYCLING_CONTRACT_ADDRESS,
+            event: {
+              type: 'event',
+              name: 'RecyclingCenterRemoved',
+              inputs: [{ type: 'address', name: 'center', indexed: true }],
+            },
+            fromBlock: recentRange,
+            toBlock: currentBlock,
+          }).catch(() => [])
+
+          addedLogs.push(...recentAdded)
+          removedLogs.push(...recentRemoved)
+          console.log(`✅ Encontrados ${recentAdded.length} eventos de centros agregados en bloques recientes`)
+        } catch (err) {
+          console.warn('Error buscando en bloques recientes:', err)
         }
         
-        const searchRanges = [
-          { from: fromBlock, to: currentBlock },
-        ]
+        // Paso 2: Si no encontramos nada, buscar en un rango más amplio
+        if (addedLogs.length === 0) {
+          const fromBlock = currentBlock > 50000n ? currentBlock - 50000n : 0n
+          const searchRanges = [
+            { from: fromBlock, to: currentBlock },
+          ]
 
-        // Buscar en chunks para evitar límites de RPC
-        for (const range of searchRanges) {
-          if (range.from >= range.to) continue
+          // Buscar en chunks para evitar límites de RPC
+          for (const range of searchRanges) {
+            if (range.from >= range.to) continue
 
-          try {
-            // Intentar obtener eventos en este rango
-            const chunkAddedLogs = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
-              event: {
-                type: 'event',
-                name: 'RecyclingCenterAdded',
-                inputs: [
-                  { type: 'address', name: 'center', indexed: true },
-                ],
-              },
-              fromBlock: range.from,
-              toBlock: range.to,
-            }).catch(() => [])
+            try {
+              // Intentar obtener eventos en este rango
+              const chunkAddedLogs = await publicClient.getLogs({
+                address: RECYCLING_CONTRACT_ADDRESS,
+                event: {
+                  type: 'event',
+                  name: 'RecyclingCenterAdded',
+                  inputs: [
+                    { type: 'address', name: 'center', indexed: true },
+                  ],
+                },
+                fromBlock: range.from,
+                toBlock: range.to,
+              }).catch(() => [])
 
-            const chunkRemovedLogs = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
-              event: {
-                type: 'event',
-                name: 'RecyclingCenterRemoved',
-                inputs: [
-                  { type: 'address', name: 'center', indexed: true },
-                ],
-              },
-              fromBlock: range.from,
-              toBlock: range.to,
-            }).catch(() => [])
+              const chunkRemovedLogs = await publicClient.getLogs({
+                address: RECYCLING_CONTRACT_ADDRESS,
+                event: {
+                  type: 'event',
+                  name: 'RecyclingCenterRemoved',
+                  inputs: [
+                    { type: 'address', name: 'center', indexed: true },
+                  ],
+                },
+                fromBlock: range.from,
+                toBlock: range.to,
+              }).catch(() => [])
 
-            addedLogs.push(...chunkAddedLogs)
-            removedLogs.push(...chunkRemovedLogs)
-          } catch (error: any) {
-            // Si el rango es muy grande, intentar dividirlo en chunks más pequeños
-            if (error?.message?.includes('too large') || error?.message?.includes('range')) {
-              const chunkSize = 5000n
-              let chunkFrom = range.from
+              addedLogs.push(...chunkAddedLogs)
+              removedLogs.push(...chunkRemovedLogs)
               
-              while (chunkFrom < range.to) {
-                const chunkTo = chunkFrom + chunkSize > range.to ? range.to : chunkFrom + chunkSize
+              if (chunkAddedLogs.length > 0 || chunkRemovedLogs.length > 0) {
+                console.log(`✅ Encontrados ${chunkAddedLogs.length} agregados, ${chunkRemovedLogs.length} removidos en rango amplio`)
+              }
+            } catch (error: any) {
+              // Si el rango es muy grande, intentar dividirlo en chunks más pequeños
+              if (error?.message?.includes('too large') || error?.message?.includes('range')) {
+                const chunkSize = 10000n
+                let chunkFrom = range.from
                 
-                try {
-                  // Buscar eventos en este chunk con timeout
-                  const chunkPromise = Promise.all([
-                    publicClient.getLogs({
+                while (chunkFrom < range.to) {
+                  const chunkTo = chunkFrom + chunkSize > range.to ? range.to : chunkFrom + chunkSize
+                  
+                  try {
+                    const chunkAdded = await publicClient.getLogs({
                       address: RECYCLING_CONTRACT_ADDRESS,
                       event: {
                         type: 'event',
@@ -717,8 +741,9 @@ export function useRecyclingCenters() {
                       },
                       fromBlock: chunkFrom,
                       toBlock: chunkTo,
-                    }).catch(() => []),
-                    publicClient.getLogs({
+                    }).catch(() => [])
+
+                    const chunkRemoved = await publicClient.getLogs({
                       address: RECYCLING_CONTRACT_ADDRESS,
                       event: {
                         type: 'event',
@@ -729,30 +754,19 @@ export function useRecyclingCenters() {
                       },
                       fromBlock: chunkFrom,
                       toBlock: chunkTo,
-                    }).catch(() => []),
-                  ]).then(([added, removed]) => ({ added, removed }))
-                  
-                  // Timeout de 10 segundos por chunk
-                  const chunkResult = await Promise.race([
-                    chunkPromise,
-                    new Promise<{ added: any[], removed: any[] }>((resolve) => 
-                      setTimeout(() => resolve({ added: [], removed: [] }), 10000)
-                    ),
-                  ])
-                  
-                  const chunkAdded = chunkResult.added
-                  const chunkRemoved = chunkResult.removed
+                    }).catch(() => [])
 
-                  addedLogs.push(...chunkAdded)
-                  removedLogs.push(...chunkRemoved)
-                } catch {
-                  // Ignorar errores en chunks individuales
+                    addedLogs.push(...chunkAdded)
+                    removedLogs.push(...chunkRemoved)
+                  } catch {
+                    // Ignorar errores en chunks individuales
+                  }
+                  
+                  chunkFrom = chunkTo + 1n
                 }
-                
-                chunkFrom = chunkTo + 1n
+              } else {
+                console.warn('Error loading centers in range:', error)
               }
-            } else {
-              console.warn('Error loading centers in range:', error)
             }
           }
         }
@@ -887,9 +901,11 @@ export function useRecyclingCenters() {
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'RecyclingCenterAdded',
     onLogs(logs) {
+      console.log('🔔 Evento RecyclingCenterAdded detectado:', logs.length, 'centros')
       logs.forEach((log) => {
         const centerAddress = log.args.center as `0x${string}`
         if (centerAddress) {
+          console.log('✅ Agregando centro desde evento:', centerAddress)
           updateCenters(centerAddress, true)
         }
       })
@@ -902,9 +918,11 @@ export function useRecyclingCenters() {
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'RecyclingCenterRemoved',
     onLogs(logs) {
+      console.log('🔔 Evento RecyclingCenterRemoved detectado:', logs.length, 'centros')
       logs.forEach((log) => {
         const centerAddress = log.args.center as `0x${string}`
         if (centerAddress) {
+          console.log('❌ Removiendo centro desde evento:', centerAddress)
           updateCenters(centerAddress, false)
         }
       })
