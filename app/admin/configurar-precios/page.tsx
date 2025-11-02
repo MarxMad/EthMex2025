@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAccount } from "wagmi"
-import { useIsOwner, useSetMaterialPrice, useMaterialPrice } from "@/lib/hooks/use-recycling-contract"
+import { useIsOwner, useSetGlobalMaterialPrice, useMaterialPrice } from "@/lib/hooks/use-recycling-contract"
 import { PaymentToken } from "@/lib/contracts"
 import { ArrowLeft, Settings, AlertCircle, CheckCircle2 } from "lucide-react"
 
@@ -25,7 +25,7 @@ const MATERIALES = [
 export default function ConfigurarPreciosPage() {
   const { address, isConnected } = useAccount()
   const { isOwner, isLoading: checkingOwner } = useIsOwner()
-  const { setMaterialPrice, isPending, isSuccess, error, hash } = useSetMaterialPrice()
+  const { setGlobalMaterialPrice, isPending, isSuccess, error, hash } = useSetGlobalMaterialPrice()
   
   const [materialType, setMaterialType] = useState("plastico")
   const [paymentToken, setPaymentToken] = useState<PaymentToken>(PaymentToken.ETH)
@@ -60,7 +60,7 @@ export default function ConfigurarPreciosPage() {
     }
 
     try {
-      await setMaterialPrice(
+      await setGlobalMaterialPrice(
         materialType,
         paymentToken,
         price,
@@ -242,7 +242,8 @@ export default function ConfigurarPreciosPage() {
           <div className="mt-6 p-4 bg-muted/50 rounded-lg">
             <p className="text-sm font-semibold mb-2">📝 Nota:</p>
             <p className="text-xs text-muted-foreground mb-2">
-              Los precios se configuran globalmente por material y token. Ejemplo:
+              Estos son precios <strong>globales</strong> que se usarán como fallback cuando un centro no tenga su propio precio configurado. 
+              Cada centro puede configurar sus propios precios desde su dashboard.
             </p>
             <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
               <li>Plástico a 0.002 ETH/kg = <code className="bg-background px-1 rounded">2000000000000000</code> wei</li>

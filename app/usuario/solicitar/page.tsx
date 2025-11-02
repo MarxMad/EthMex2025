@@ -469,7 +469,7 @@ export default function SolicitarRecoleccionPage() {
             </div>
 
             {/* Precio Estimado */}
-            <Card className={`p-4 border ${!materialPrice || materialPrice === 0n ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-primary/5 border-primary/20'}`}>
+            <Card className={`p-4 border ${!materialPrice || materialPrice === 0n ? 'bg-red-500/5 border-red-500/20' : 'bg-primary/5 border-primary/20'}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Pago Estimado</p>
@@ -494,15 +494,17 @@ export default function SolicitarRecoleccionPage() {
                         : `${formatEther(materialPrice)} tokens/kg`}
                     </p>
                   ) : (
-                    <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">No configurado</p>
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400">No configurado</p>
                   )}
                 </div>
               </div>
               {(!materialPrice || materialPrice === 0n) && (
-                <Alert className="mt-2 border-yellow-500/20 bg-yellow-500/5">
-                  <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                  <AlertDescription className="text-xs text-yellow-700 dark:text-yellow-300">
-                    El precio para este material aún no está configurado en el contrato. Puedes intentar crear la entrega, pero el contrato la rechazará si el precio no está configurado. Contacta al administrador para configurar los precios.
+                <Alert variant="destructive" className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    <strong>El precio para este material y método de pago no está configurado en el contrato.</strong> 
+                    El botón de solicitud está bloqueado hasta que el centro configure sus precios. 
+                    El centro debe ir a su dashboard y configurar los precios en "Configurar Precios".
                   </AlertDescription>
                 </Alert>
               )}
@@ -535,7 +537,8 @@ export default function SolicitarRecoleccionPage() {
                 !formData.fecha ||
                 !formData.hora ||
                 !formData.direccion ||
-                formData.direccion.trim().length === 0
+                formData.direccion.trim().length === 0 ||
+                (!materialPrice || materialPrice === 0n) // Bloquear si el centro no tiene precio configurado
               }
             >
               {loading || isPending 

@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Truck,
+  Settings,
 } from "lucide-react"
 
 export default function CentroDashboard() {
@@ -201,22 +202,44 @@ export default function CentroDashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Botón para Registrar Nuevo Centro */}
-        <Card className="p-4 mb-6 bg-primary/5 border-primary/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-foreground mb-1">Gestionar Centros</h3>
-              <p className="text-sm text-muted-foreground">
-                Registra un nuevo centro de reciclaje autorizado en el contrato
-              </p>
+        {/* Acciones Rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card className="p-4 bg-primary/5 border-primary/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground mb-1 flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Configurar Precios
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Establece precios por material y método de pago para tu centro
+                </p>
+              </div>
+              <Button asChild variant="default">
+                <Link href="/centro/configurar-precios">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Configurar
+                </Link>
+              </Button>
             </div>
-            <Button asChild className="bg-primary text-primary-foreground">
-              <Link href="/centro/registro">
-                Registrar Nuevo Centro
-              </Link>
-            </Button>
-          </div>
-        </Card>
+          </Card>
+          
+          <Card className="p-4 bg-accent/5 border-accent/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">Gestionar Centros</h3>
+                <p className="text-sm text-muted-foreground">
+                  Registra un nuevo centro autorizado (solo owner)
+                </p>
+              </div>
+              <Button asChild variant="outline">
+                <Link href="/centro/registro">
+                  Registrar
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
