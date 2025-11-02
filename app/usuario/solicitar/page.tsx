@@ -223,6 +223,7 @@ export default function SolicitarRecoleccionPage() {
 
           {/* Pantalla de Confirmación */}
           {showConfirmation && isSuccess ? (
+            <div className="space-y-6">
             <Card className="p-8 text-center">
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 className="w-10 h-10 text-primary" />
@@ -300,6 +301,7 @@ export default function SolicitarRecoleccionPage() {
                 </Button>
               </div>
             </Card>
+            </div>
           ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Selección de Centro de Reciclaje */}
@@ -553,6 +555,7 @@ export default function SolicitarRecoleccionPage() {
               </p>
             )}
           </form>
+          )}
         </Card>
       </div>
     </div>

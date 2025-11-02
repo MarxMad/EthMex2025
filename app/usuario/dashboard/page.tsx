@@ -271,7 +271,7 @@ export default function UsuarioDashboard() {
               )}
             </Card>
           ))
-        }
+          )
         </div>
       </div>
     </div>
