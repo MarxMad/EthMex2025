@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAccount, useDisconnect } from "wagmi"
 import { Logo } from "@/components/logo"
 import { useCenterDeliveries, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
-import { hasCollector, getDeliveryCollector } from "@/lib/hooks/use-collector-acceptance"
+// Ya no necesitamos importar hasCollector ni getDeliveryCollector
+// Ahora usamos delivery.collector directamente del contrato
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import {
@@ -66,18 +67,15 @@ export default function CentroDashboard() {
     }
   }
 
-  // Solo filtrar por recolector en el cliente después del mount para evitar problemas de hidratación
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   // Separar entregas por estado
   // Los centros solo ven entregas que tienen recolector asignado (aceptadas)
   const solicitudesPendientes = deliveries
-    .filter(({ id, delivery }) => 
-      delivery.status === DeliveryStatus.Pending && (mounted ? hasCollector(id) : true)
-    )
+    .filter(({ delivery }) => {
+      // Filtrar solo entregas pendientes que tienen recolector asignado
+      const hasCollector = delivery.collector && 
+                           delivery.collector !== '0x0000000000000000000000000000000000000000'
+      return delivery.status === DeliveryStatus.Pending && hasCollector
+    })
     .map(({ id, delivery }) => {
       const metadata = parseMetadata(delivery.metadata)
       const fecha = delivery.createdAt ? new Date(Number(delivery.createdAt) * 1000).toLocaleString('es-MX') : ""
@@ -93,7 +91,11 @@ export default function CentroDashboard() {
         ? `${Number(pagoAmount) / 1e6} USDC`
         : `${formatEther(delivery.paymentAmount)} MXNB`
 
-      const collectorAddress = mounted ? getDeliveryCollector(id) : null
+      // Usar collector directamente del delivery struct del contrato
+      const collectorAddress = delivery.collector && 
+                               delivery.collector !== '0x0000000000000000000000000000000000000000'
+        ? delivery.collector
+        : null
       const collectorDisplay = collectorAddress 
         ? `${collectorAddress.slice(0, 6)}...${collectorAddress.slice(-4)}`
         : "Sin asignar"
