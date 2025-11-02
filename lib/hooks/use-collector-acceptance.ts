@@ -8,6 +8,10 @@ export function useAcceptDelivery() {
   const { address } = useAccount()
 
   const acceptDelivery = (deliveryId: bigint) => {
+    if (typeof window === 'undefined') {
+      throw new Error('localStorage solo disponible en el cliente')
+    }
+
     if (!address) {
       throw new Error('Wallet no conectada')
     }

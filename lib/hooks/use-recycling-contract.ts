@@ -544,6 +544,12 @@ export function useRecyclingCenters() {
 
   // Cargar centros desde localStorage y luego intentar obtener eventos recientes
   useEffect(() => {
+    // No ejecutar en servidor
+    if (typeof window === 'undefined') {
+      setIsLoading(false)
+      return
+    }
+
     const loadCenters = async () => {
       // Primero cargar desde localStorage
       const stored = localStorage.getItem('recyclingCenters')
@@ -672,7 +678,8 @@ export function useRecyclingCenters() {
 
   // Guardar en localStorage cuando cambien los centros
   useEffect(() => {
-    if (centers.length > 0) {
+    // Solo guardar en el cliente
+    if (typeof window !== 'undefined' && centers.length > 0) {
       localStorage.setItem('recyclingCenters', JSON.stringify(centers))
     }
   }, [centers])

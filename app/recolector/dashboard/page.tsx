@@ -47,7 +47,15 @@ export default function RecolectorDashboard() {
   }, [address])
 
   // Filtrar solo entregas que NO tienen recolector asignado (no aceptadas)
-  const entregasDisponibles = deliveries.filter(({ id }) => !hasCollector(id))
+  // Solo filtrar en el cliente después del mount para evitar problemas de hidratación
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const entregasDisponibles = mounted 
+    ? deliveries.filter(({ id }) => !hasCollector(id))
+    : deliveries // Durante SSR, mostrar todas temporalmente
 
   // Mapeo de materiales para mostrar
   const materialNames: Record<string, string> = {
