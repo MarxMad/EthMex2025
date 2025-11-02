@@ -4,52 +4,33 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { WalletConnect } from "@/components/web3/wallet-connect"
-import { Recycle, Truck, Building2, ArrowRight, Leaf, Users, DollarSign } from "lucide-react"
+import { Navbar } from "@/components/layout/navbar"
+import { RoleBasedRedirect } from "@/components/layout/role-based-redirect"
+import { Truck, Building2, ArrowRight, Leaf, Users, DollarSign } from "lucide-react"
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Image 
-              src="/LogoC.jpeg" 
-              alt="CriKula Logo" 
-              width={40} 
-              height={40} 
-              className="rounded-full object-cover"
-            />
-            <span className="text-xl font-bold text-foreground">CriKula</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-6">
-            <Link
-              href="#como-funciona"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cómo funciona
-            </Link>
-            <Link href="#beneficios" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Beneficios
-            </Link>
-            <WalletConnect />
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/centro/registro">
-                <Building2 className="w-4 h-4 mr-2" />
-                Ser Centro de Reciclaje
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/auth/login">Iniciar Sesión</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <RoleBasedRedirect />
+      <Navbar />
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16 md:py-24">
         <div className="max-w-4xl mx-auto text-center">
+          {/* Logo Grande */}
+          <div className="flex justify-center mb-8">
+            <div className="relative">
+              <Image 
+                src="/LogoC.jpeg" 
+                alt="CriKula Logo" 
+                width={300} 
+                height={300} 
+                className="rounded-full object-cover w-[200px] h-[200px] md:w-[300px] md:h-[300px] shadow-2xl border-4 border-primary/20"
+                priority
+              />
+            </div>
+          </div>
+          
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
             <Leaf className="w-4 h-4" />
             El Uber del Reciclaje

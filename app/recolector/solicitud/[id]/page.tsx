@@ -5,7 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Recycle, ArrowLeft, MapPin, Package, User, Clock, Navigation } from "lucide-react"
+import { Logo } from "@/components/logo"
+import { ArrowLeft, MapPin, Package, User, Clock, Navigation } from "lucide-react"
 
 export default function SolicitudDetallePage() {
   const router = useRouter()

@@ -7,12 +7,12 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAccount } from "wagmi"
+import { Logo } from "@/components/logo"
 import { useCenterDeliveries, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
 import { hasCollector, getDeliveryCollector } from "@/lib/hooks/use-collector-acceptance"
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import {
-  Recycle,
   Package,
   DollarSign,
   TrendingUp,
@@ -175,13 +175,8 @@ export default function CentroDashboard() {
       <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-              <Recycle className="w-6 h-6 text-accent-foreground" />
-            </div>
-            <div>
-              <span className="text-lg font-bold text-foreground">CriKula</span>
-              <p className="text-xs text-muted-foreground">Centro de Reciclaje</p>
-            </div>
+            <Logo size={40} />
+            <p className="text-xs text-muted-foreground">Centro de Reciclaje</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon">

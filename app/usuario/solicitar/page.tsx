@@ -177,12 +177,8 @@ export default function SolicitarRecoleccionPage() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
           </Button>
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-              <Recycle className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold text-foreground">Nueva Solicitud</span>
-          </div>
+          <Logo size={40} showText={false} />
+          <span className="text-lg font-bold text-foreground">Nueva Solicitud</span>
         </div>
       </header>
 
