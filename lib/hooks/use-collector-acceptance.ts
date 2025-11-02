@@ -47,16 +47,39 @@ export function useAcceptDelivery() {
     const paymentToken = deliveryData[6] as PaymentToken // paymentToken
     const collector = deliveryData[2] as string // collector
 
+    console.log('📋 Datos de la entrega obtenidos:', {
+      deliveryId: deliveryId.toString(),
+      paymentAmount: paymentAmount.toString(),
+      paymentAmountFormatted: formatEther(paymentAmount),
+      paymentToken,
+      collector: collector || 'Sin recolector',
+    })
+
     // Validar que la entrega esté pendiente y sin recolector
     if (collector && collector !== '0x0000000000000000000000000000000000000000') {
       throw new Error('Esta entrega ya tiene un recolector asignado')
     }
 
+    // Validar que paymentAmount sea válido
+    if (!paymentAmount || paymentAmount === 0n) {
+      throw new Error('El monto de pago de esta entrega no está configurado o es cero')
+    }
+
     // Calcular el valor a enviar si es ETH
-    // IMPORTANTE: Este valor se envía al contrato como msg.value
+    // IMPORTANTE: Este valor DEBE ser exactamente paymentAmount para que el contrato lo acepte
+    // El contrato verifica: require(msg.value >= delivery.paymentAmount, "Insufficient ETH payment")
     let value: bigint = 0n
     if (paymentToken === PaymentToken.ETH) {
+      // CRÍTICO: value debe ser exactamente paymentAmount (o mayor, el contrato reembolsa el exceso)
       value = paymentAmount
+      
+      console.log('✅ Valor calculado para enviar al contrato:', {
+        paymentAmountWei: paymentAmount.toString(),
+        paymentAmountETH: formatEther(paymentAmount),
+        valueWei: value.toString(),
+        valueETH: formatEther(value),
+        sonIguales: value === paymentAmount,
+      })
       
       console.log('💰 Preparando pago al contrato:', {
         deliveryId: deliveryId.toString(),

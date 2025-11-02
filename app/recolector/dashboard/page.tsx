@@ -87,7 +87,14 @@ export default function RecolectorDashboard() {
   }
 
   // Función helper para formatear precios correctamente
-  const formatPayment = (paymentAmount: bigint, paymentToken: PaymentToken): string => {
+  // Siempre devuelve un string formateado, nunca el bigint sin formatear
+  const formatPayment = (paymentAmount: bigint | undefined, paymentToken: PaymentToken | undefined): string => {
+    // Si no hay datos aún, mostrar placeholder
+    if (paymentAmount === undefined || paymentToken === undefined) {
+      return '---'
+    }
+    
+    // Si es 0, mostrar 0 formateado
     if (!paymentAmount || paymentAmount === 0n) {
       return '0 ETH'
     }
@@ -97,6 +104,10 @@ export default function RecolectorDashboard() {
         const formatted = formatEther(paymentAmount)
         // Reducir decimales innecesarios pero mantener precisión
         const num = parseFloat(formatted)
+        // Evitar notación científica y ceros innecesarios
+        if (num < 0.000001) {
+          return '< 0.000001 ETH'
+        }
         return `${num.toFixed(6).replace(/\.?0+$/, '')} ETH`
       } else if (paymentToken === PaymentToken.USDC) {
         // USDC tiene 6 decimales
@@ -106,13 +117,17 @@ export default function RecolectorDashboard() {
         // MXNB probablemente tiene 18 decimales
         const formatted = formatEther(paymentAmount)
         const num = parseFloat(formatted)
+        if (num < 0.000001) {
+          return '< 0.000001 MXNB'
+        }
         return `${num.toFixed(6).replace(/\.?0+$/, '')} MXNB`
       }
     } catch (err) {
-      console.error('Error formateando pago:', err)
+      console.error('Error formateando pago:', err, { paymentAmount, paymentToken })
+      return '---' // En caso de error, mostrar placeholder
     }
     
-    return '0 ETH'
+    return '---'
   }
 
   // Convertir entregas del contrato a formato para mostrar (solo las disponibles)
@@ -120,8 +135,13 @@ export default function RecolectorDashboard() {
     const metadata = parseMetadata(delivery.metadata)
     const materialName = materialNames[delivery.materialType.toLowerCase()] || delivery.materialType
     
-    // Usar función helper para formatear correctamente desde el inicio
-    const pagoDisplay = formatPayment(delivery.paymentAmount, delivery.paymentToken)
+    // IMPORTANTE: Formatear el pago ANTES de crear el objeto
+    // Esto evita mostrar bigint sin formatear (muchos ceros)
+    // Usar función helper que siempre devuelve string formateado
+    const pagoDisplay = formatPayment(
+      delivery.paymentAmount as bigint | undefined,
+      delivery.paymentToken as PaymentToken | undefined
+    )
 
     // Formatear dirección del usuario (primeros 6 y últimos 4 caracteres)
     const userAddress = `${delivery.user.slice(0, 6)}...${delivery.user.slice(-4)}`
