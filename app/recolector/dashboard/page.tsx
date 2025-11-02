@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { usePendingDeliveries } from "@/lib/hooks/use-recycling-contract"
+import { usePendingDeliveries, useAcceptDelivery, hasCollector } from "@/lib/hooks/use-recycling-contract"
+import { useAccount } from "wagmi"
 import { PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import {
@@ -57,8 +58,20 @@ export default function RecolectorDashboard() {
     }
   }
 
-  // Convertir entregas del contrato a formato para mostrar
-  const solicitudes = deliveries.map(({ id, delivery }) => {
+  // Función para manejar la aceptación de una entrega
+  const handleAcceptDelivery = (deliveryId: bigint) => {
+    try {
+      acceptDelivery(deliveryId)
+      setAcceptedDeliveries(prev => new Set([...prev, deliveryId.toString()]))
+      // Opcional: mostrar notificación de éxito
+    } catch (err: any) {
+      console.error('Error aceptando entrega:', err)
+      alert('Error al aceptar la entrega. Por favor intenta nuevamente.')
+    }
+  }
+
+  // Convertir entregas del contrato a formato para mostrar (solo las disponibles)
+  const solicitudes = entregasDisponibles.map(({ id, delivery }) => {
     const metadata = parseMetadata(delivery.metadata)
     const materialName = materialNames[delivery.materialType.toLowerCase()] || delivery.materialType
     

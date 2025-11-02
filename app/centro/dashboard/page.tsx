@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAccount } from "wagmi"
-import { useCenterDeliveries, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
+import { useCenterDeliveries, useIsRecyclingCenter, hasCollector } from "@/lib/hooks/use-recycling-contract"
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import {
@@ -64,8 +64,11 @@ export default function CentroDashboard() {
   }
 
   // Separar entregas por estado
+  // Los centros solo ven entregas que tienen recolector asignado (aceptadas)
   const solicitudesPendientes = deliveries
-    .filter(({ delivery }) => delivery.status === DeliveryStatus.Pending)
+    .filter(({ id, delivery }) => 
+      delivery.status === DeliveryStatus.Pending && hasCollector(id)
+    )
     .map(({ id, delivery }) => {
       const metadata = parseMetadata(delivery.metadata)
       const fecha = delivery.createdAt ? new Date(Number(delivery.createdAt) * 1000).toLocaleString('es-MX') : ""
@@ -81,6 +84,11 @@ export default function CentroDashboard() {
         ? `${Number(pagoAmount) / 1e6} USDC`
         : `${formatEther(delivery.paymentAmount)} MXNB`
 
+      const collectorAddress = getDeliveryCollector(id)
+      const collectorDisplay = collectorAddress 
+        ? `${collectorAddress.slice(0, 6)}...${collectorAddress.slice(-4)}`
+        : "Sin asignar"
+
       return {
         id: Number(id),
         tipo: materialName,
@@ -90,6 +98,8 @@ export default function CentroDashboard() {
         deliveryId: id,
         delivery: delivery,
         userAddress: delivery.user,
+        collectorAddress: collectorDisplay,
+        collectorFullAddress: collectorAddress,
       }
     })
 
