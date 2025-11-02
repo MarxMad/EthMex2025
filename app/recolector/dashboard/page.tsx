@@ -25,7 +25,28 @@ import {
 
 export default function RecolectorDashboard() {
   const [disponible, setDisponible] = useState(true)
+  const { address } = useAccount()
   const { deliveries, isLoading } = usePendingDeliveries()
+  const { acceptDelivery } = useAcceptDelivery()
+  const [acceptedDeliveries, setAcceptedDeliveries] = useState<Set<string>>(new Set())
+
+  // Cargar entregas ya aceptadas desde localStorage
+  useEffect(() => {
+    if (address) {
+      const stored = localStorage.getItem(`collector_deliveries_${address.toLowerCase()}`)
+      if (stored) {
+        try {
+          const deliveries: string[] = JSON.parse(stored)
+          setAcceptedDeliveries(new Set(deliveries))
+        } catch {
+          // Ignorar errores de parsing
+        }
+      }
+    }
+  }, [address])
+
+  // Filtrar solo entregas que NO tienen recolector asignado (no aceptadas)
+  const entregasDisponibles = deliveries.filter(({ id }) => !hasCollector(id))
 
   // Mapeo de materiales para mostrar
   const materialNames: Record<string, string> = {
@@ -232,10 +253,16 @@ export default function RecolectorDashboard() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-foreground">Solicitudes Disponibles</h2>
-              <Badge variant="secondary" className="animate-pulse">
-                {solicitudes.length} nuevas
-              </Badge>
+              {solicitudes.length > 0 && (
+                <Badge variant="secondary" className="animate-pulse">
+                  {solicitudes.length} {solicitudes.length === 1 ? 'nueva' : 'nuevas'}
+                </Badge>
+              )}
             </div>
+            
+            <p className="text-sm text-muted-foreground mb-4">
+              Estas son las solicitudes de usuarios que aún no tienen recolector asignado. Al aceptar una solicitud, se asignará a ti y el centro podrá verla.
+            </p>
 
             <div className="space-y-4">
               {solicitudes.map((solicitud) => (
@@ -288,11 +315,12 @@ export default function RecolectorDashboard() {
                     <Button 
                       size="sm" 
                       className="bg-primary"
-                      asChild
+                      onClick={() => handleAcceptDelivery(solicitud.deliveryId)}
+                      disabled={acceptedDeliveries.has(solicitud.deliveryId.toString())}
                     >
-                      <Link href={`/recolector/entrega/${solicitud.deliveryId.toString()}`}>
-                        Aceptar Recolección
-                      </Link>
+                      {acceptedDeliveries.has(solicitud.deliveryId.toString()) 
+                        ? "Ya Aceptada" 
+                        : "Aceptar Recolección"}
                     </Button>
                   </div>
                 </Card>

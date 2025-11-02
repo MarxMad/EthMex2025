@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAccount } from "wagmi"
-import { useCenterDeliveries, useIsRecyclingCenter, hasCollector } from "@/lib/hooks/use-recycling-contract"
+import { useCenterDeliveries, useIsRecyclingCenter, hasCollector, getDeliveryCollector } from "@/lib/hooks/use-recycling-contract"
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import {
@@ -291,7 +291,10 @@ export default function CentroDashboard() {
               </Card>
             ) : solicitudesPendientes.length === 0 ? (
               <Card className="p-8 text-center">
-                <p className="text-muted-foreground">No hay solicitudes pendientes en este momento.</p>
+                <p className="text-muted-foreground">
+                  No hay solicitudes pendientes con recolector asignado en este momento.
+                  Las solicitudes aparecerán aquí una vez que un recolector las haya aceptado.
+                </p>
               </Card>
             ) : (
               solicitudesPendientes.map((solicitud) => (
