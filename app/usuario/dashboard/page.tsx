@@ -228,50 +228,52 @@ export default function UsuarioDashboard() {
               <p className="text-muted-foreground">No tienes solicitudes aún. ¡Crea tu primera solicitud de recolección!</p>
             </Card>
           ) : (
-            solicitudes.map((solicitud) => (
-            <Card key={solicitud.id} className="p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-start gap-3">
-                  {getEstadoIcon(solicitud.estado)}
-                  <div>
-                    <h3 className="font-semibold text-foreground">{solicitud.tipo}</h3>
-                    <p className="text-sm text-muted-foreground">{solicitud.cantidad}</p>
+            <>
+              {solicitudes.map((solicitud) => (
+                <Card key={solicitud.id} className="p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start gap-3">
+                      {getEstadoIcon(solicitud.estado)}
+                      <div>
+                        <h3 className="font-semibold text-foreground">{solicitud.tipo}</h3>
+                        <p className="text-sm text-muted-foreground">{solicitud.cantidad}</p>
+                      </div>
+                    </div>
+                    {getEstadoBadge(solicitud.estado)}
                   </div>
-                </div>
-                {getEstadoBadge(solicitud.estado)}
-              </div>
 
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>{solicitud.direccion}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>{solicitud.fecha}</span>
-                </div>
-                {solicitud.recolector && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Truck className="w-4 h-4" />
-                    <span>Recolector: {solicitud.recolector}</span>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      <span>{solicitud.direccion}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>{solicitud.fecha}</span>
+                    </div>
+                    {solicitud.recolector && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Truck className="w-4 h-4" />
+                        <span>Recolector: {solicitud.recolector}</span>
+                      </div>
+                    )}
+                    {solicitud.pago && (
+                      <div className="flex items-center gap-2 text-primary font-medium">
+                        <DollarSign className="w-4 h-4" />
+                        <span>{solicitud.pago}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                {solicitud.pago && (
-                  <div className="flex items-center gap-2 text-primary font-medium">
-                    <DollarSign className="w-4 h-4" />
-                    <span>{solicitud.pago}</span>
-                  </div>
-                )}
-              </div>
 
-              {solicitud.estado === "en-proceso" && (
-                <Button variant="outline" size="sm" className="w-full mt-4 bg-transparent" asChild>
-                  <Link href={`/usuario/mapa/${solicitud.id}`}>Ver en Mapa</Link>
-                </Button>
-              )}
-            </Card>
-          ))
-          )
+                  {solicitud.estado === "en-proceso" && (
+                    <Button variant="outline" size="sm" className="w-full mt-4 bg-transparent" asChild>
+                      <Link href={`/usuario/mapa/${solicitud.id}`}>Ver en Mapa</Link>
+                    </Button>
+                  )}
+                </Card>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </div>
