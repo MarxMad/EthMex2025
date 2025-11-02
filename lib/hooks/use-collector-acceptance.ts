@@ -4,7 +4,7 @@ import { useAccount, useBalance, usePublicClient } from 'wagmi'
 import { useState, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, PaymentToken } from '@/lib/contracts'
-import { formatEther, parseEther, encodeFunctionData, type Address } from 'viem'
+import { formatEther, parseEther, encodeFunctionData } from 'viem'
 
 /**
  * Hook para aceptar una entrega como recolector
