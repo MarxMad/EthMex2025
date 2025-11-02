@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CriKula - Blockchain-Powered Recycling Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            border-radius: 20px;
+            margin-bottom: 3rem;
+            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3);
+        }
+
+        header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header .tagline {
+            font-size: 1.5rem;
+            font-weight: 300;
+            opacity: 0.95;
+            margin-top: 0.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+
+        .section h2 {
+            color: #16a34a;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section h2::before {
+            content: "🌱";
+            font-size: 2rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 2px solid #dcfce7;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: #22c55e;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.15);
+        }
+
+        .feature-card h3 {
+            color: #16a34a;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .tech-badge {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3);
+        }
+
+        .workflow {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            background: #f0fdf4;
+            border-radius: 12px;
+            border-left: 4px solid #22c55e;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3);
+        }
+
+        .step-content h4 {
+            color: #16a34a;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .status-item {
+            padding: 1rem;
+            background: #f0fdf4;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-item.completed {
+            border: 2px solid #22c55e;
+        }
+
+        .status-item.in-progress {
+            border: 2px solid #f59e0b;
+        }
+
+        .contract-info {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-top: 1.5rem;
+        }
+
+        .contract-info h3 {
+            color: #22c55e;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .contract-address {
+            font-family: 'Courier New', monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            word-break: break-all;
+            font-size: 1rem;
+            color: #22c55e;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            margin-top: 3rem;
+        }
+
+        .footer-highlight {
+            color: #16a34a;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            header .tagline {
+                font-size: 1.2rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .workflow-step {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+        }
+
+        .icon {
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌱 CriKula</h1>
+            <p class="tagline">Blockchain-Powered Recycling Platform</p>
+            <span class="badge">The Uber of Recycling</span>
+        </header>
+
+        <section class="section">
+            <h2>About</h2>
+            <p style="font-size: 1.1rem; line-height: 1.8; color: #444;">
+                <strong>CriKula</strong> is a decentralized recycling platform that revolutionizes the circular economy in Mexico through blockchain technology. Dubbed "The Uber of Recycling," the platform connects three key stakeholders: users who want to recycle, independent collectors, and authorized recycling centers, creating a transparent, secure, and profitable ecosystem for all participants.
+            </p>
+        </section>
+
+        <section class="section">
+            <h2>Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>🔐 Smart Contract Escrow</h3>
+                    <p>Payments are secured in escrow until delivery validation, protecting all parties involved</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💎 Multi-Token Support</h3>
+                    <p>Accepts payments in ETH, USDC, or MXNB based on user preference</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 Dynamic Pricing</h3>
+                    <p>Each recycling center can set custom prices per material type and payment method</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🔗 Full Traceability</h3>
+                    <p>Complete immutable transaction history on the blockchain</p>
+                </div>
+                <div class="feature-card">
+                    <h3>👥 Role-Based Dashboard</h3>
+                    <p>Dedicated interfaces for users, collectors, and recycling centers</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🌐 Decentralized & Trustless</h3>
+                    <p>No intermediaries, code is law</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>Technology Stack</h2>
+            <div class="tech-stack">
+                <span class="tech-badge">Next.js 16</span>
+                <span class="tech-badge">TypeScript</span>
+                <span class="tech-badge">Tailwind CSS</span>
+                <span class="tech-badge">Shadcn UI</span>
+                <span class="tech-badge">Arbitrum Sepolia</span>
+                <span class="tech-badge">Solidity ^0.8.24</span>
+                <span class="tech-badge">Wagmi v2</span>
+                <span class="tech-badge">Viem v2</span>
+                <span class="tech-badge">RainbowKit v2</span>
+                <span class="tech-badge">OpenZeppelin</span>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>How It Works</h2>
+            <div class="workflow">
+                <div class="workflow-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Users Create Requests</h4>
+                        <p>Users create recycling requests by selecting a center, material type, and payment method. Funds are locked in escrow automatically.</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Collectors Accept Pickups</h4>
+                        <p>Independent collectors browse available requests and accept pickup jobs. They transport materials to designated recycling centers.</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Centers Validate Materials</h4>
+                        <p>Recycling centers verify material quality and quantity. Upon validation, payments are automatically released via smart contract escrow.</p>
+                    </div>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Automatic Payment Distribution</h4>
+                        <p>Funds are automatically distributed: user receives payment, platform collects configurable commission, all recorded on-chain.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>Current Status</h2>
+            <div class="status-grid">
+                <div class="status-item completed">
+                    <strong style="color: #22c55e;">✅</strong><br>
+                    <strong>Fully functional smart contract</strong><br>
+                    <small>Deployed on Arbitrum Sepolia</small>
+                </div>
+                <div class="status-item completed">
+                    <strong style="color: #22c55e;">✅</strong><br>
+                    <strong>Complete frontend integration</strong><br>
+                    <small>Role-based dashboards</small>
+                </div>
+                <div class="status-item completed">
+                    <strong style="color: #22c55e;">✅</strong><br>
+                    <strong>Escrow system operational</strong><br>
+                    <small>Payment security guaranteed</small>
+                </div>
+                <div class="status-item completed">
+                    <strong style="color: #22c55e;">✅</strong><br>
+                    <strong>Multi-token payment support</strong><br>
+                    <small>ETH, USDC, MXNB</small>
+                </div>
+                <div class="status-item in-progress">
+                    <strong style="color: #f59e0b;">🚧</strong><br>
+                    <strong>Route tracking</strong><br>
+                    <small>In development</small>
+                </div>
+                <div class="status-item in-progress">
+                    <strong style="color: #f59e0b;">🚧</strong><br>
+                    <strong>Mobile app</strong><br>
+                    <small>In development</small>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>Smart Contract</h2>
+            <div class="contract-info">
+                <h3>📍 Contract Address (Arbitrum Sepolia)</h3>
+                <div class="contract-address">
+                    0x9eac6fff8014b159bd930cb526c3059a1a65e298
+                </div>
+                <p style="margin-top: 1rem; opacity: 0.9;">
+                    View on <a href="https://sepolia.arbiscan.io/address/0x9eac6fff8014b159bd930cb526c3059a1a65e298" target="_blank" style="color: #22c55e; text-decoration: underline;">Arbiscan</a>
+                </p>
+            </div>
+        </section>
+
+        <footer>
+            <p>
+                Built for <span class="footer-highlight">ETHMexico 2025</span><br>
+                <em>Transforming waste into opportunities, one block at a time 🌱</em>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
+

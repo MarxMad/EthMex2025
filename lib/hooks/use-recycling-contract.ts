@@ -3,13 +3,24 @@
 import { useWriteContract, useReadContract, useWaitForTransactionReceipt, useAccount, useWatchContractEvent, usePublicClient } from 'wagmi'
 import { parseEther, formatEther, parseUnits, encodeFunctionData, type Address } from 'viem'
 import { useBalance } from 'wagmi'
-import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, type Delivery, DeliveryStatus, PaymentToken } from '@/lib/contracts'
+import { getContractAddress, RECYCLING_CONTRACT_ABI, type Delivery, DeliveryStatus, PaymentToken } from '@/lib/contracts'
 import { useState, useEffect } from 'react'
+
+// Hook helper para obtener la dirección del contrato según la chain activa
+function useContractAddress(): `0x${string}` {
+  const { chainId } = useAccount()
+  if (!chainId) {
+    // Por defecto, usar Arbitrum Sepolia
+    return getContractAddress(421614)
+  }
+  return getContractAddress(chainId)
+}
 
 // Hook para crear una entrega (actualizado para V3)
 export function useCreateDelivery() {
   const { address } = useAccount()
   const publicClient = usePublicClient()
+  const contractAddress = useContractAddress()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
@@ -78,7 +89,7 @@ export function useCreateDelivery() {
       console.log('📤 Enviando transacción (sin pago - el recolector pagará al aceptar)...')
       
       const result = await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'createDelivery',
         args: [
@@ -174,7 +185,7 @@ export function useValidateDelivery() {
   const validateDelivery = async (deliveryId: bigint) => {
     try {
       await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'validateDelivery',
         args: [deliveryId],
@@ -205,7 +216,7 @@ export function useRejectDelivery() {
   const rejectDelivery = async (deliveryId: bigint, reason: string) => {
     try {
       await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'rejectDelivery',
         args: [deliveryId, reason],
@@ -232,7 +243,7 @@ export function useRejectDelivery() {
 // Hook para verificar si una dirección es un centro autorizado
 export function useIsRecyclingCenter(centerAddress: `0x${string}` | undefined) {
   const { data, isLoading, error } = useReadContract({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     functionName: 'recyclingCenters',
     args: centerAddress !== undefined ? [centerAddress] : undefined,
@@ -252,7 +263,7 @@ export function useIsRecyclingCenter(centerAddress: `0x${string}` | undefined) {
 export function useIsOwner() {
   const { address } = useAccount()
   const { data: owner, isLoading, error } = useReadContract({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     functionName: 'owner',
   })
@@ -289,7 +300,7 @@ export function useAddRecyclingCenter() {
       const normalizedAddress = centerAddress.toLowerCase() as Address
 
       console.log('🔍 Preparando transacción addRecyclingCenter:', {
-        contract: RECYCLING_CONTRACT_ADDRESS,
+          contract: contractAddress,
         centerAddress: normalizedAddress,
         functionName: 'addRecyclingCenter',
       })
@@ -307,7 +318,7 @@ export function useAddRecyclingCenter() {
       try {
         const gasEstimate = await publicClient.estimateGas({
           account: address,
-          to: RECYCLING_CONTRACT_ADDRESS,
+          to: contractAddress,
           data: encodedData,
           value: 0n,
         })
@@ -318,7 +329,7 @@ export function useAddRecyclingCenter() {
 
       // Enviar transacción con todos los parámetros explícitos
       const result = await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'addRecyclingCenter',
         args: [normalizedAddress],
@@ -363,7 +374,7 @@ export function useMaterialPrice(
   centerAddress: `0x${string}` | undefined // Requerido para V3
 ) {
   const { data, isLoading, error, refetch } = useReadContract({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     functionName: 'getMaterialPrice',
     args: materialType !== undefined && centerAddress !== undefined 
@@ -463,7 +474,7 @@ export function useSetMaterialPrice() {
       })
 
       await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'setMaterialPrice',
         args: [materialType, token, priceInWei],
@@ -516,7 +527,7 @@ export function useSetCenterMaterialPrice() {
       })
 
       await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'setCenterMaterialPrice',
         args: [centerAddress, materialType, token, priceInWei],
@@ -564,7 +575,7 @@ export function useSetGlobalMaterialPrice() {
       })
 
       await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'setGlobalMaterialPrice',
         args: [materialType, token, priceInWei],
@@ -591,6 +602,7 @@ export function useRecyclingCenters() {
   const [isLoading, setIsLoading] = useState(true)
   const publicClient = usePublicClient()
   const { chainId } = useAccount()
+  const contractAddress = useContractAddress()
 
   // Función para actualizar la lista de centros
   const updateCenters = (centerAddress: `0x${string}`, add: boolean) => {
@@ -634,7 +646,8 @@ export function useRecyclingCenters() {
         
         console.log('🔍 Cargando centros de reciclaje...', {
           currentBlock: currentBlock.toString(),
-          contractAddress: RECYCLING_CONTRACT_ADDRESS,
+          contractAddress: contractAddress,
+          chainId: chainId,
         })
 
         const addedLogs: any[] = []
@@ -647,7 +660,7 @@ export function useRecyclingCenters() {
         try {
           const recentRange = currentBlock > 2000n ? currentBlock - 2000n : 0n
           const recentAdded = await publicClient.getLogs({
-            address: RECYCLING_CONTRACT_ADDRESS,
+            address: contractAddress,
             event: {
               type: 'event',
               name: 'RecyclingCenterAdded',
@@ -658,7 +671,7 @@ export function useRecyclingCenters() {
           }).catch(() => [])
 
           const recentRemoved = await publicClient.getLogs({
-            address: RECYCLING_CONTRACT_ADDRESS,
+            address: contractAddress,
             event: {
               type: 'event',
               name: 'RecyclingCenterRemoved',
@@ -689,7 +702,7 @@ export function useRecyclingCenters() {
             try {
               // Intentar obtener eventos en este rango
               const chunkAddedLogs = await publicClient.getLogs({
-                address: RECYCLING_CONTRACT_ADDRESS,
+                address: contractAddress,
                 event: {
                   type: 'event',
                   name: 'RecyclingCenterAdded',
@@ -702,7 +715,7 @@ export function useRecyclingCenters() {
               }).catch(() => [])
 
               const chunkRemovedLogs = await publicClient.getLogs({
-                address: RECYCLING_CONTRACT_ADDRESS,
+                address: contractAddress,
                 event: {
                   type: 'event',
                   name: 'RecyclingCenterRemoved',
@@ -731,7 +744,7 @@ export function useRecyclingCenters() {
                   
                   try {
                     const chunkAdded = await publicClient.getLogs({
-                      address: RECYCLING_CONTRACT_ADDRESS,
+                      address: contractAddress,
                       event: {
                         type: 'event',
                         name: 'RecyclingCenterAdded',
@@ -744,7 +757,7 @@ export function useRecyclingCenters() {
                     }).catch(() => [])
 
                     const chunkRemoved = await publicClient.getLogs({
-                      address: RECYCLING_CONTRACT_ADDRESS,
+                      address: contractAddress,
                       event: {
                         type: 'event',
                         name: 'RecyclingCenterRemoved',
@@ -798,7 +811,7 @@ export function useRecyclingCenters() {
           try {
             // Buscar eventos DeliveryCreated para extraer centros únicos
             const deliveryLogs = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               event: {
                 type: 'event',
                 name: 'DeliveryCreated',
@@ -837,7 +850,7 @@ export function useRecyclingCenters() {
             // Buscar solo en los últimos 5000 bloques (más probable que esté disponible)
             const recentRange = currentBlock > 5000n ? currentBlock - 5000n : 0n
             const recentAdded = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               event: {
                 type: 'event',
                 name: 'RecyclingCenterAdded',
@@ -848,7 +861,7 @@ export function useRecyclingCenters() {
             }).catch(() => [])
 
             const recentRemoved = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               event: {
                 type: 'event',
                 name: 'RecyclingCenterRemoved',
@@ -897,7 +910,7 @@ export function useRecyclingCenters() {
 
   // Escuchar eventos de centros agregados en tiempo real
   useWatchContractEvent({
-    address: RECYCLING_CONTRACT_ADDRESS,
+    address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'RecyclingCenterAdded',
     onLogs(logs) {
@@ -914,7 +927,7 @@ export function useRecyclingCenters() {
 
   // Escuchar eventos de centros removidos en tiempo real
   useWatchContractEvent({
-    address: RECYCLING_CONTRACT_ADDRESS,
+    address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'RecyclingCenterRemoved',
     onLogs(logs) {
@@ -959,7 +972,7 @@ export function useUserDeliveries() {
 
         // Obtener eventos DeliveryCreated para este usuario
         const logs = await publicClient.getLogs({
-          address: RECYCLING_CONTRACT_ADDRESS,
+          address: contractAddress,
           event: {
             type: 'event',
             name: 'DeliveryCreated',
@@ -985,7 +998,7 @@ export function useUserDeliveries() {
           const deliveryId = log.args.deliveryId as bigint
           try {
             const delivery = await publicClient.readContract({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               abi: RECYCLING_CONTRACT_ABI,
               functionName: 'deliveries',
               args: [deliveryId],
@@ -1023,7 +1036,7 @@ export function useUserDeliveries() {
 
   // Escuchar nuevos eventos en tiempo real
   useWatchContractEvent({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'DeliveryCreated',
     onLogs(logs) {
@@ -1034,7 +1047,7 @@ export function useUserDeliveries() {
 
           try {
             const delivery = await publicClient.readContract({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               abi: RECYCLING_CONTRACT_ABI,
               functionName: 'deliveries',
               args: [deliveryId],
@@ -1103,7 +1116,7 @@ export function usePendingDeliveries() {
           try {
             // Intentar obtener eventos en este rango
             const chunkLogs = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               event: {
                 type: 'event',
                 name: 'DeliveryCreated',
@@ -1133,7 +1146,7 @@ export function usePendingDeliveries() {
                 
                 try {
                   const chunkLogs = await publicClient.getLogs({
-                    address: RECYCLING_CONTRACT_ADDRESS,
+                    address: contractAddress,
                     event: {
                       type: 'event',
                       name: 'DeliveryCreated',
@@ -1171,7 +1184,7 @@ export function usePendingDeliveries() {
           const deliveryId = log.args.deliveryId as bigint
           try {
             const delivery = await publicClient.readContract({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               abi: RECYCLING_CONTRACT_ABI,
               functionName: 'deliveries',
               args: [deliveryId],
@@ -1239,7 +1252,7 @@ export function usePendingDeliveries() {
 
   // Escuchar nuevos eventos en tiempo real - DeliveryCreated
   useWatchContractEvent({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'DeliveryCreated',
     onLogs(logs) {
@@ -1249,7 +1262,7 @@ export function usePendingDeliveries() {
 
         try {
           const delivery = await publicClient.readContract({
-            address: RECYCLING_CONTRACT_ADDRESS,
+            address: contractAddress,
             abi: RECYCLING_CONTRACT_ABI,
             functionName: 'deliveries',
             args: [deliveryId],
@@ -1284,7 +1297,7 @@ export function usePendingDeliveries() {
 
   // Escuchar cambios de estado - DeliveryValidated
   useWatchContractEvent({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'DeliveryValidated',
     onLogs(logs) {
@@ -1298,7 +1311,7 @@ export function usePendingDeliveries() {
 
   // Escuchar cambios de estado - DeliveryRejected
   useWatchContractEvent({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'DeliveryRejected',
     onLogs(logs) {
@@ -1321,7 +1334,7 @@ export function usePendingDeliveries() {
           deliveries.map(async ({ id }) => {
             try {
               const delivery = await publicClient.readContract({
-                address: RECYCLING_CONTRACT_ADDRESS,
+                address: contractAddress,
                 abi: RECYCLING_CONTRACT_ABI,
                 functionName: 'deliveries',
                 args: [id],
@@ -1390,7 +1403,7 @@ function parseDeliveryFromContract(deliveryData: any): Delivery {
 // Esta versión reemplaza la anterior que usaba getDelivery
 export function useDelivery(deliveryId: bigint | undefined) {
   const { data, isLoading, error } = useReadContract({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     functionName: 'deliveries',
     args: deliveryId !== undefined ? [deliveryId] : undefined,
@@ -1476,7 +1489,7 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
           try {
             // Intentar obtener eventos en este rango filtrados por centro
             const chunkLogs = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               event: {
                 type: 'event',
                 name: 'DeliveryCreated',
@@ -1509,7 +1522,7 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
                 
                 try {
                   const chunkLogs = await publicClient.getLogs({
-                    address: RECYCLING_CONTRACT_ADDRESS,
+                    address: contractAddress,
                     event: {
                       type: 'event',
                       name: 'DeliveryCreated',
@@ -1553,7 +1566,7 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
           const deliveryId = log.args.deliveryId as bigint
           try {
             const delivery = await publicClient.readContract({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               abi: RECYCLING_CONTRACT_ABI,
               functionName: 'deliveries',
               args: [deliveryId],
@@ -1603,7 +1616,7 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
 
   // Escuchar nuevos eventos en tiempo real
   useWatchContractEvent({
-    address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
     abi: RECYCLING_CONTRACT_ABI,
     eventName: 'DeliveryCreated',
     onLogs(logs) {
@@ -1614,7 +1627,7 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
 
           try {
             const delivery = await publicClient.readContract({
-              address: RECYCLING_CONTRACT_ADDRESS,
+              address: contractAddress,
               abi: RECYCLING_CONTRACT_ABI,
               functionName: 'deliveries',
               args: [deliveryId],

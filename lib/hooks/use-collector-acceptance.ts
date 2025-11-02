@@ -3,8 +3,18 @@
 import { useAccount, useBalance, usePublicClient } from 'wagmi'
 import { useState, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, PaymentToken } from '@/lib/contracts'
+import { getContractAddress, RECYCLING_CONTRACT_ABI, PaymentToken } from '@/lib/contracts'
 import { formatEther, parseEther, encodeFunctionData } from 'viem'
+
+// Hook helper para obtener la dirección del contrato según la chain activa
+function useContractAddress(): `0x${string}` {
+  const { chainId } = useAccount()
+  if (!chainId) {
+    // Por defecto, usar Arbitrum Sepolia
+    return getContractAddress(421614)
+  }
+  return getContractAddress(chainId)
+}
 
 /**
  * Hook para aceptar una entrega como recolector
@@ -14,6 +24,7 @@ export function useAcceptDelivery() {
   const { address } = useAccount()
   const { data: balance } = useBalance({ address })
   const publicClient = usePublicClient()
+  const contractAddress = useContractAddress()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
@@ -32,7 +43,7 @@ export function useAcceptDelivery() {
     }
 
     const deliveryData = await publicClient.readContract({
-      address: RECYCLING_CONTRACT_ADDRESS,
+      address: contractAddress,
       abi: RECYCLING_CONTRACT_ABI,
       functionName: 'deliveries',
       args: [deliveryId],
@@ -147,7 +158,7 @@ export function useAcceptDelivery() {
       // Estimar gas limit necesario
       gasEstimate = await publicClient.estimateGas({
         account: address,
-        to: RECYCLING_CONTRACT_ADDRESS,
+        to: contractAddress,
         data: encodeFunctionData({
           abi: RECYCLING_CONTRACT_ABI,
           functionName: 'acceptDelivery',
@@ -183,7 +194,7 @@ export function useAcceptDelivery() {
       // - Es payable, así que el campo 'value' envía ETH al contrato
       // - Establecemos límites de gas para evitar fees excesivos
       await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
+        address: contractAddress,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'acceptDelivery', // ✅ Nombre correcto
         args: [deliveryId], // ✅ Solo deliveryId (uint256) como requiere el contrato
@@ -205,7 +216,7 @@ export function useAcceptDelivery() {
       try {
         const fallbackGasEstimate = await publicClient.estimateGas({
           account: address,
-          to: RECYCLING_CONTRACT_ADDRESS,
+          to: contractAddress,
           data: encodeFunctionData({
             abi: RECYCLING_CONTRACT_ABI,
             functionName: 'acceptDelivery',
@@ -219,7 +230,7 @@ export function useAcceptDelivery() {
           : (fallbackGasEstimate * BigInt(120)) / BigInt(100)
         
         await writeContract({
-          address: RECYCLING_CONTRACT_ADDRESS,
+          address: contractAddress,
           abi: RECYCLING_CONTRACT_ABI,
           functionName: 'acceptDelivery',
           args: [deliveryId], // ✅ Solo deliveryId
@@ -230,7 +241,7 @@ export function useAcceptDelivery() {
         // Último fallback: sin límites (solo para casos extremos)
         console.warn('⚠️ Usando configuración sin límites de gas (fallback final)')
         await writeContract({
-          address: RECYCLING_CONTRACT_ADDRESS,
+          address: contractAddress,
           abi: RECYCLING_CONTRACT_ABI,
           functionName: 'acceptDelivery',
           args: [deliveryId], // ✅ Solo deliveryId como requiere el contrato
@@ -255,6 +266,7 @@ export function useAcceptDelivery() {
 export function useDeliveryCollector(deliveryId: bigint | undefined) {
   const [collector, setCollector] = useState<`0x${string}` | null>(null)
   const publicClient = usePublicClient()
+  const contractAddress = useContractAddress()
 
   useEffect(() => {
     if (!deliveryId || !publicClient) {
@@ -266,7 +278,7 @@ export function useDeliveryCollector(deliveryId: bigint | undefined) {
     const loadCollector = async () => {
       try {
         const deliveryData = await publicClient.readContract({
-          address: RECYCLING_CONTRACT_ADDRESS,
+          address: contractAddress,
           abi: RECYCLING_CONTRACT_ABI,
           functionName: 'deliveries',
           args: [deliveryId],

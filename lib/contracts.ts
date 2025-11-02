@@ -2,11 +2,30 @@
 
 // Direcciones del contrato RecyclingEscrowV3 por red
 export const RECYCLING_CONTRACT_ADDRESSES = {
-  arbitrumSepolia: '0x9eac6fff8014b159bd930cb526c3059a1a65e298' as const, // V3 desplegado
-  scrollSepolia: '', // Se actualizará cuando se despliegue en Scroll
+  arbitrumSepolia: '0x9eac6fff8014b159bd930cb526c3059a1a65e298' as const, // V3 desplegado en Arbitrum Sepolia
+  scrollSepolia: '' as const, // Se actualizará cuando se despliegue en Scroll
 } as const
 
-// Dirección del contrato activo (usar según la red configurada)
+// Función para obtener la dirección del contrato según la chain ID
+export function getContractAddress(chainId: number): `0x${string}` {
+  // Arbitrum Sepolia: 421614
+  if (chainId === 421614) {
+    return RECYCLING_CONTRACT_ADDRESSES.arbitrumSepolia
+  }
+  // Scroll Sepolia: 534351
+  if (chainId === 534351) {
+    const scrollAddress = RECYCLING_CONTRACT_ADDRESSES.scrollSepolia
+    if (!scrollAddress) {
+      throw new Error('Contract not deployed on Scroll Sepolia yet. Please update RECYCLING_CONTRACT_ADDRESSES.scrollSepolia')
+    }
+    return scrollAddress
+  }
+  // Por defecto, usar Arbitrum Sepolia
+  return RECYCLING_CONTRACT_ADDRESSES.arbitrumSepolia
+}
+
+// Dirección del contrato activo (legacy, usar getContractAddress en su lugar)
+// Se mantiene para compatibilidad pero se recomienda usar getContractAddress con chainId
 export const RECYCLING_CONTRACT_ADDRESS = RECYCLING_CONTRACT_ADDRESSES.arbitrumSepolia
 
 // ABI del contrato RecyclingEscrowV3 (actualizado desde contrato desplegado)
