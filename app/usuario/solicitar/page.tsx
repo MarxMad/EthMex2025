@@ -93,9 +93,12 @@ export default function SolicitarRecoleccionPage() {
       return
     }
 
+    // Advertencia si el precio no está configurado, pero permitir intentar la transacción
+    // El contrato validará y rechazará con un mensaje claro si el precio no está configurado
     if (!materialPrice || materialPrice === 0n) {
-      setErrorMessage("El precio para este material y método de pago no está configurado en el contrato. Contacta al administrador.")
-      return
+      // Mostrar advertencia pero no bloquear
+      console.warn("⚠️ Precio no configurado para este material. El contrato rechazará la transacción si el precio no está configurado.")
+      // Continuar - el contrato validará
     }
 
     if (!formData.direccion || formData.direccion.trim() === "") {
@@ -397,7 +400,7 @@ export default function SolicitarRecoleccionPage() {
             </div>
 
             {/* Precio Estimado */}
-            <Card className="p-4 bg-primary/5 border-primary/20">
+            <Card className={`p-4 border ${!materialPrice || materialPrice === 0n ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-primary/5 border-primary/20'}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Pago Estimado</p>
@@ -422,14 +425,17 @@ export default function SolicitarRecoleccionPage() {
                         : `${formatEther(materialPrice)} tokens/kg`}
                     </p>
                   ) : (
-                    <p className="text-sm font-medium text-muted-foreground">No configurado</p>
+                    <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">No configurado</p>
                   )}
                 </div>
               </div>
-              {!materialPrice && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  El precio para este material aún no está configurado en el contrato.
-                </p>
+              {(!materialPrice || materialPrice === 0n) && (
+                <Alert className="mt-2 border-yellow-500/20 bg-yellow-500/5">
+                  <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                  <AlertDescription className="text-xs text-yellow-700 dark:text-yellow-300">
+                    El precio para este material aún no está configurado en el contrato. Puedes intentar crear la entrega, pero el contrato la rechazará si el precio no está configurado. Contacta al administrador para configurar los precios.
+                  </AlertDescription>
+                </Alert>
               )}
             </Card>
 
@@ -445,9 +451,10 @@ export default function SolicitarRecoleccionPage() {
                 !selectedCenter || 
                 checkingCenter ||
                 !isRecyclingCenter || 
-                isSuccess ||
-                !materialPrice ||
-                materialPrice === 0n
+                isSuccess
+                // Removido: !materialPrice || materialPrice === 0n
+                // Permitir intentar aunque el precio no esté configurado
+                // El contrato rechazará con mensaje claro si falta el precio
               }
             >
               {loading || isPending 
