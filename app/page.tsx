@@ -16,7 +16,7 @@ export default function HomePage() {
       <Navbar />
 
       {/* Hero Section - Mejorado */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background">
+      <section className="relative overflow-hidden bg-background">
         {/* Elementos decorativos de fondo */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl"></div>
@@ -41,14 +41,14 @@ export default function HomePage() {
             </div>
             
             {/* Badge animado */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 text-primary text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 border border-primary/20 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 border border-primary/20">
               <Sparkles className="w-4 h-4 animate-pulse" />
               El Uber del Reciclaje
             </div>
 
-            {/* Título principal con gradiente */}
+            {/* Título principal */}
             <h1 className="text-5xl md:text-7xl font-bold mb-6 text-balance animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-              <span className="bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
+              <span className="text-primary">
                 Conectamos el reciclaje
               </span>
               <br />
@@ -99,7 +99,7 @@ export default function HomePage() {
       </section>
 
       {/* User Types Section - Mejorado */}
-      <section className="py-20 md:py-28 bg-gradient-to-b from-background via-muted/30 to-background">
+      <section className="py-20 md:py-28 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">¿Cómo participar?</Badge>
@@ -114,7 +114,7 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {/* Usuario/Empresa */}
             <Card className="p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-transparent hover:border-primary/20 group">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 rounded-xl bg-primary/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Users className="w-8 h-8 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-card-foreground mb-3">Usuario / Empresa</h3>
@@ -141,7 +141,7 @@ export default function HomePage() {
             </Card>
 
             {/* Recolector - Destacado */}
-            <Card className="p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-primary/50 bg-gradient-to-br from-primary/5 to-transparent group relative overflow-hidden">
+            <Card className="p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-primary/50 bg-primary/5 group relative overflow-hidden">
               <div className="absolute top-4 right-4">
                 <Badge className="bg-primary text-primary-foreground">Más Popular</Badge>
               </div>
@@ -173,7 +173,7 @@ export default function HomePage() {
 
             {/* Centro de Reciclaje */}
             <Card className="p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-transparent hover:border-accent/20 group">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-accent/20 to-accent/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 rounded-xl bg-accent/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Building2 className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-2xl font-bold text-card-foreground mb-3">Centro de Reciclaje</h3>
@@ -250,7 +250,7 @@ export default function HomePage() {
       </section>
 
       {/* How it Works - Mejorado */}
-      <section id="como-funciona" className="py-20 md:py-28 bg-gradient-to-b from-muted/30 to-background">
+      <section id="como-funciona" className="py-20 md:py-28 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">Proceso Simple</Badge>
@@ -263,7 +263,7 @@ export default function HomePage() {
           <div className="max-w-5xl mx-auto">
             <div className="grid md:grid-cols-2 gap-8">
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
+                <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
                   1
                 </div>
                 <div>
@@ -275,7 +275,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
+                <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
                   2
                 </div>
                 <div>
@@ -287,7 +287,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
+                <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
                   3
                 </div>
                 <div>
@@ -299,7 +299,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
+                <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
                   4
                 </div>
                 <div>
@@ -315,7 +315,7 @@ export default function HomePage() {
       </section>
 
       {/* Benefits - Mejorado */}
-      <section id="beneficios" className="relative py-20 md:py-28 bg-gradient-to-br from-primary via-primary/95 to-primary overflow-hidden">
+      <section id="beneficios" className="relative py-20 md:py-28 bg-primary overflow-hidden">
         {/* Elementos decorativos */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
           <div className="absolute top-20 left-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
@@ -362,9 +362,9 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section - Mejorado */}
-      <section className="py-20 md:py-28 bg-gradient-to-b from-background to-muted/20">
+      <section className="py-20 md:py-28 bg-background">
         <div className="container mx-auto px-4">
-          <Card className="max-w-4xl mx-auto p-12 md:p-16 text-center bg-gradient-to-br from-card via-card to-primary/5 border-2 border-primary/20 shadow-2xl relative overflow-hidden">
+          <Card className="max-w-4xl mx-auto p-12 md:p-16 text-center bg-card border-2 border-primary/20 shadow-2xl relative overflow-hidden">
             {/* Elementos decorativos */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl"></div>
@@ -394,7 +394,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer - Mejorado */}
-      <footer className="border-t border-border bg-gradient-to-b from-muted/50 to-background py-12">
+      <footer className="border-t border-border bg-muted/50 py-12">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAccount } from "wagmi"
+import { useAccount, useDisconnect } from "wagmi"
 import { Logo } from "@/components/logo"
 import { useCenterDeliveries, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
 import { hasCollector, getDeliveryCollector } from "@/lib/hooks/use-collector-acceptance"
@@ -26,6 +26,7 @@ import {
 
 export default function CentroDashboard() {
   const { address } = useAccount()
+  const { disconnect } = useDisconnect()
   const { isRecyclingCenter, isLoading: checkingCenter } = useIsRecyclingCenter(
     address ? (address as `0x${string}`) : undefined
   )
@@ -182,10 +183,18 @@ export default function CentroDashboard() {
             <Button variant="ghost" size="icon">
               <User className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/">
-                <LogOut className="w-5 h-5" />
-              </Link>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => {
+                disconnect()
+                setTimeout(() => {
+                  window.location.href = '/'
+                }, 100)
+              }}
+              title="Desconectar wallet y salir"
+            >
+              <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>

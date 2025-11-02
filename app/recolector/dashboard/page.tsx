@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { usePendingDeliveries } from "@/lib/hooks/use-recycling-contract"
 import { useAcceptDelivery, hasCollector } from "@/lib/hooks/use-collector-acceptance"
 import { Logo } from "@/components/logo"
-import { useAccount } from "wagmi"
+import { useAccount, useDisconnect } from "wagmi"
 import { PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import {
@@ -27,6 +27,7 @@ import {
 export default function RecolectorDashboard() {
   const [disponible, setDisponible] = useState(true)
   const { address } = useAccount()
+  const { disconnect } = useDisconnect()
   const { deliveries, isLoading } = usePendingDeliveries()
   const { acceptDelivery } = useAcceptDelivery()
   const [acceptedDeliveries, setAcceptedDeliveries] = useState<Set<string>>(new Set())
@@ -171,10 +172,18 @@ export default function RecolectorDashboard() {
                 <User className="w-5 h-5" />
               </Link>
             </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/">
-                <LogOut className="w-5 h-5" />
-              </Link>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => {
+                disconnect()
+                setTimeout(() => {
+                  window.location.href = '/'
+                }, 100)
+              }}
+              title="Desconectar wallet y salir"
+            >
+              <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>

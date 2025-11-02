@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useDisconnect } from "wagmi"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +25,7 @@ import {
 
 export default function UsuarioDashboard() {
   const { deliveries, isLoading } = useUserDeliveries()
+  const { disconnect } = useDisconnect()
 
   // Mapeo de materiales para mostrar
   const materialNames: Record<string, string> = {
@@ -141,10 +143,18 @@ export default function UsuarioDashboard() {
                 <User className="w-5 h-5" />
               </Link>
             </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/">
-                <LogOut className="w-5 h-5" />
-              </Link>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => {
+                disconnect()
+                setTimeout(() => {
+                  window.location.href = '/'
+                }, 100)
+              }}
+              title="Desconectar wallet y salir"
+            >
+              <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
