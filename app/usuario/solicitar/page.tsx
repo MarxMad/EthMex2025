@@ -18,6 +18,7 @@ import { PaymentToken } from "@/lib/contracts"
 import { formatEther, parseEther } from "viem"
 import { Recycle, ArrowLeft, ArrowRight, Package, Calendar, MapPin, ImageIcon, AlertCircle, Wallet, CheckCircle2 } from "lucide-react"
 import { RecyclingCenterSelector } from "@/components/recycling-center-selector"
+import { Logo } from "@/components/logo"
 
 export default function SolicitarRecoleccionPage() {
   const router = useRouter()
@@ -117,8 +118,8 @@ export default function SolicitarRecoleccionPage() {
     }
 
     try {
-      setLoading(true)
-      
+    setLoading(true)
+
       // Crear metadata con información adicional
       const metadata = JSON.stringify({
         direccion: formData.direccion,
@@ -178,7 +179,7 @@ export default function SolicitarRecoleccionPage() {
             </Link>
           </Button>
           <Logo size={40} showText={false} />
-          <span className="text-lg font-bold text-foreground">Nueva Solicitud</span>
+            <span className="text-lg font-bold text-foreground">Nueva Solicitud</span>
         </div>
       </header>
 
@@ -475,11 +476,11 @@ export default function SolicitarRecoleccionPage() {
                   {loadingPrice ? (
                     <p className="text-2xl font-bold text-primary">Calculando...</p>
                   ) : estimatedPayment > 0n ? (
-                    <p className="text-2xl font-bold text-primary">
+                  <p className="text-2xl font-bold text-primary">
                       {paymentToken === PaymentToken.ETH 
                         ? `${formatEther(estimatedPayment)} ETH`
                         : `${formatEther(estimatedPayment)} tokens`}
-                    </p>
+                  </p>
                   ) : (
                     <p className="text-2xl font-bold text-muted-foreground">--</p>
                   )}
