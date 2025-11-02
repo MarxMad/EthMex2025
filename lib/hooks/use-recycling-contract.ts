@@ -565,40 +565,105 @@ export function useRecyclingCenters() {
 
       try {
         const currentBlock = await publicClient.getBlockNumber()
-        const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n
+        
+        // Intentar buscar desde un rango más amplio (10,000 bloques) o desde el bloque 0
+        // Usar una estrategia de chunks para evitar límites de RPC
+        const searchRanges = [
+          { from: currentBlock > 10000n ? currentBlock - 10000n : 0n, to: currentBlock }, // Últimos 10k bloques
+          { from: 0n, to: currentBlock > 10000n ? currentBlock - 10000n : currentBlock }, // Resto si hay más
+        ]
 
-        // Obtener eventos recientes de RecyclingCenterAdded
-        const addedLogs = await publicClient.getLogs({
-          address: RECYCLING_CONTRACT_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'RecyclingCenterAdded',
-            inputs: [
-              { type: 'address', name: 'center', indexed: true },
-            ],
-          },
-          fromBlock,
-          toBlock: 'latest',
-        }).catch(() => []) // Si falla, usar array vacío
+        const addedLogs: any[] = []
+        const removedLogs: any[] = []
 
-        // Obtener eventos recientes de RecyclingCenterRemoved
-        const removedLogs = await publicClient.getLogs({
-          address: RECYCLING_CONTRACT_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'RecyclingCenterRemoved',
-            inputs: [
-              { type: 'address', name: 'center', indexed: true },
-            ],
-          },
-          fromBlock,
-          toBlock: 'latest',
-        }).catch(() => []) // Si falla, usar array vacío
+        // Buscar en chunks para evitar límites de RPC
+        for (const range of searchRanges) {
+          if (range.from >= range.to) continue
+
+          try {
+            // Intentar obtener eventos en este rango
+            const chunkAddedLogs = await publicClient.getLogs({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              event: {
+                type: 'event',
+                name: 'RecyclingCenterAdded',
+                inputs: [
+                  { type: 'address', name: 'center', indexed: true },
+                ],
+              },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }).catch(() => [])
+
+            const chunkRemovedLogs = await publicClient.getLogs({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              event: {
+                type: 'event',
+                name: 'RecyclingCenterRemoved',
+                inputs: [
+                  { type: 'address', name: 'center', indexed: true },
+                ],
+              },
+              fromBlock: range.from,
+              toBlock: range.to,
+            }).catch(() => [])
+
+            addedLogs.push(...chunkAddedLogs)
+            removedLogs.push(...chunkRemovedLogs)
+          } catch (error: any) {
+            // Si el rango es muy grande, intentar dividirlo en chunks más pequeños
+            if (error?.message?.includes('too large') || error?.message?.includes('range')) {
+              const chunkSize = 5000n
+              let chunkFrom = range.from
+              
+              while (chunkFrom < range.to) {
+                const chunkTo = chunkFrom + chunkSize > range.to ? range.to : chunkFrom + chunkSize
+                
+                try {
+                  const chunkAdded = await publicClient.getLogs({
+                    address: RECYCLING_CONTRACT_ADDRESS,
+                    event: {
+                      type: 'event',
+                      name: 'RecyclingCenterAdded',
+                      inputs: [
+                        { type: 'address', name: 'center', indexed: true },
+                      ],
+                    },
+                    fromBlock: chunkFrom,
+                    toBlock: chunkTo,
+                  }).catch(() => [])
+
+                  const chunkRemoved = await publicClient.getLogs({
+                    address: RECYCLING_CONTRACT_ADDRESS,
+                    event: {
+                      type: 'event',
+                      name: 'RecyclingCenterRemoved',
+                      inputs: [
+                        { type: 'address', name: 'center', indexed: true },
+                      ],
+                    },
+                    fromBlock: chunkFrom,
+                    toBlock: chunkTo,
+                  }).catch(() => [])
+
+                  addedLogs.push(...chunkAdded)
+                  removedLogs.push(...chunkRemoved)
+                } catch {
+                  // Ignorar errores en chunks individuales
+                }
+                
+                chunkFrom = chunkTo + 1n
+              }
+            } else {
+              console.warn('Error loading centers in range:', error)
+            }
+          }
+        }
 
         // Procesar eventos: solo usar eventos recientes (sin localStorage)
         const centersSet = new Set<string>()
 
-        // Agregar todos los centros de eventos recientes
+        // Agregar todos los centros de eventos
         addedLogs.forEach((log) => {
           const centerAddress = (log.args as any)?.center?.toLowerCase()
           if (centerAddress) {
@@ -606,7 +671,7 @@ export function useRecyclingCenters() {
           }
         })
 
-        // Remover los que fueron removidos en eventos recientes
+        // Remover los que fueron removidos
         removedLogs.forEach((log) => {
           const centerAddress = (log.args as any)?.center?.toLowerCase()
           if (centerAddress) {
@@ -623,7 +688,7 @@ export function useRecyclingCenters() {
         setCenters(centersList)
         setIsLoading(false)
       } catch (error) {
-        console.error('Error loading recent centers:', error)
+        console.error('Error loading centers:', error)
         setIsLoading(false)
       }
     }
