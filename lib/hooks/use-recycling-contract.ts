@@ -1421,6 +1421,18 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
 
     loadCenterDeliveries()
   }, [centerAddress, publicClient])
+  
+  // Agregar dependencia de chainId para recargar cuando cambia la red
+  const { chainId } = useAccount()
+  
+  useEffect(() => {
+    // Recargar cuando cambia la red o el centro
+    if (chainId && centerAddress) {
+      setDeliveries([])
+      setIsLoading(true)
+      // Esto se recargará automáticamente por el useEffect anterior
+    }
+  }, [chainId, centerAddress])
 
   // Escuchar nuevos eventos en tiempo real
   useWatchContractEvent({
