@@ -11,7 +11,7 @@ import { useAcceptDelivery } from "@/lib/hooks/use-collector-acceptance"
 import { Logo } from "@/components/logo"
 import { useAccount, useDisconnect } from "wagmi"
 import { PaymentToken } from "@/lib/contracts"
-import { formatEther } from "viem"
+import { formatEther, formatUnits } from "viem"
 import { ActivateCollectorRole } from "@/components/activate-collector-role"
 import { RoleGuard } from "@/components/role-guard"
 import {
@@ -86,20 +86,42 @@ export default function RecolectorDashboard() {
     }
   }
 
+  // Función helper para formatear precios correctamente
+  const formatPayment = (paymentAmount: bigint, paymentToken: PaymentToken): string => {
+    if (!paymentAmount || paymentAmount === 0n) {
+      return '0 ETH'
+    }
+    
+    try {
+      if (paymentToken === PaymentToken.ETH) {
+        const formatted = formatEther(paymentAmount)
+        // Reducir decimales innecesarios pero mantener precisión
+        const num = parseFloat(formatted)
+        return `${num.toFixed(6).replace(/\.?0+$/, '')} ETH`
+      } else if (paymentToken === PaymentToken.USDC) {
+        // USDC tiene 6 decimales
+        const usdcAmount = Number(paymentAmount) / 1e6
+        return `${usdcAmount.toFixed(2)} USDC`
+      } else if (paymentToken === PaymentToken.MXNB) {
+        // MXNB probablemente tiene 18 decimales
+        const formatted = formatEther(paymentAmount)
+        const num = parseFloat(formatted)
+        return `${num.toFixed(6).replace(/\.?0+$/, '')} MXNB`
+      }
+    } catch (err) {
+      console.error('Error formateando pago:', err)
+    }
+    
+    return '0 ETH'
+  }
+
   // Convertir entregas del contrato a formato para mostrar (solo las disponibles)
   const solicitudes = entregasDisponibles.map(({ id, delivery }) => {
     const metadata = parseMetadata(delivery.metadata)
     const materialName = materialNames[delivery.materialType.toLowerCase()] || delivery.materialType
     
-    const pagoAmount = delivery.paymentToken === PaymentToken.ETH
-      ? formatEther(delivery.paymentAmount)
-      : delivery.paymentAmount.toString()
-
-    const pagoDisplay = delivery.paymentToken === PaymentToken.ETH
-      ? `${pagoAmount} ETH`
-      : delivery.paymentToken === PaymentToken.USDC
-      ? `${Number(pagoAmount) / 1e6} USDC`
-      : `${formatEther(delivery.paymentAmount)} MXNB`
+    // Usar función helper para formatear correctamente desde el inicio
+    const pagoDisplay = formatPayment(delivery.paymentAmount, delivery.paymentToken)
 
     // Formatear dirección del usuario (primeros 6 y últimos 4 caracteres)
     const userAddress = `${delivery.user.slice(0, 6)}...${delivery.user.slice(-4)}`

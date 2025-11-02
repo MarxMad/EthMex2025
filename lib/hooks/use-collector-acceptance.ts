@@ -4,7 +4,7 @@ import { useAccount, useBalance, usePublicClient } from 'wagmi'
 import { useState, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, PaymentToken } from '@/lib/contracts'
-import { formatEther, parseEther } from 'viem'
+import { formatEther, parseEther, encodeFunctionData } from 'viem'
 
 /**
  * Hook para aceptar una entrega como recolector
@@ -77,14 +77,49 @@ export function useAcceptDelivery() {
       throw new Error('Pagos con tokens ERC20 aún no implementados para aceptar entregas')
     }
 
-    // Enviar transacción al contrato
-    await writeContract({
-      address: RECYCLING_CONTRACT_ADDRESS,
-      abi: RECYCLING_CONTRACT_ABI,
-      functionName: 'acceptDelivery',
-      args: [deliveryId],
-      value: value, // Enviar ETH si es PaymentToken.ETH
-    })
+    // Estimar gas antes de enviar la transacción
+    let gasEstimate: bigint | undefined
+    try {
+      gasEstimate = await publicClient.estimateGas({
+        account: address,
+        to: RECYCLING_CONTRACT_ADDRESS,
+        data: encodeFunctionData({
+          abi: RECYCLING_CONTRACT_ABI,
+          functionName: 'acceptDelivery',
+          args: [deliveryId],
+        }),
+        value: value,
+      })
+      
+      // Agregar un margen de seguridad del 20% al gas estimado
+      const gasWithMargin = (gasEstimate * BigInt(120)) / BigInt(100)
+      
+      console.log('⛽ Gas estimado para acceptDelivery:', {
+        estimado: gasEstimate.toString(),
+        conMargen: gasWithMargin.toString(),
+        enGwei: formatEther(gasWithMargin * BigInt(20000000000)), // Aproximación si gasPrice es 20 gwei
+      })
+      
+      // Enviar transacción al contrato con gas limit explícito
+      await writeContract({
+        address: RECYCLING_CONTRACT_ADDRESS,
+        abi: RECYCLING_CONTRACT_ABI,
+        functionName: 'acceptDelivery',
+        args: [deliveryId],
+        value: value, // Enviar ETH si es PaymentToken.ETH
+        gas: gasWithMargin, // Limitar el gas para evitar estimaciones excesivas
+      })
+    } catch (gasError: any) {
+      console.error('Error estimando gas:', gasError)
+      // Si falla la estimación, intentar sin límite de gas (fallback)
+      await writeContract({
+        address: RECYCLING_CONTRACT_ADDRESS,
+        abi: RECYCLING_CONTRACT_ABI,
+        functionName: 'acceptDelivery',
+        args: [deliveryId],
+        value: value,
+      })
+    }
 
     return true
   }
