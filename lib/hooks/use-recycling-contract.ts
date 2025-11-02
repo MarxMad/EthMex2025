@@ -195,78 +195,8 @@ export function useRejectDelivery() {
   }
 }
 
-// Hook para obtener una entrega específica
-export function useDelivery(deliveryId: bigint | undefined) {
-  const { data, isLoading, error, refetch } = useReadContract({
-    address: RECYCLING_CONTRACT_ADDRESS,
-    abi: RECYCLING_CONTRACT_ABI,
-    functionName: 'getDelivery',
-    args: deliveryId !== undefined ? [deliveryId] : undefined,
-    query: {
-      enabled: deliveryId !== undefined,
-    },
-  })
-
-  return {
-    delivery: data as Delivery | undefined,
-    isLoading,
-    error,
-    refetch,
-  }
-}
-
-// Hook para obtener todas las entregas de un usuario
-export function useUserDeliveries(userAddress: `0x${string}` | undefined) {
-  const { data: deliveryIds, isLoading, error, refetch } = useReadContract({
-    address: RECYCLING_CONTRACT_ADDRESS,
-    abi: RECYCLING_CONTRACT_ABI,
-    functionName: 'getUserDeliveries',
-    args: userAddress !== undefined ? [userAddress] : undefined,
-    query: {
-      enabled: userAddress !== undefined,
-    },
-  })
-
-  return {
-    deliveryIds: deliveryIds as bigint[] | undefined,
-    isLoading,
-    error,
-    refetch,
-  }
-}
-
-// Hook para obtener todas las entregas del usuario conectado
-export function useMyDeliveries() {
-  const { address } = useAccount()
-  return useUserDeliveries(address)
-}
-
-// Hook para obtener el estado de una entrega
-export function useDeliveryStatus(deliveryId: bigint | undefined) {
-  const { delivery } = useDelivery(deliveryId)
-
-  const getStatusLabel = (status: DeliveryStatus | undefined): string => {
-    if (status === undefined) return 'Desconocido'
-    switch (status) {
-      case DeliveryStatus.Pending:
-        return 'Pendiente'
-      case DeliveryStatus.Validated:
-        return 'Validado'
-      case DeliveryStatus.Rejected:
-        return 'Rechazado'
-      case DeliveryStatus.Completed:
-        return 'Completado'
-      default:
-        return 'Desconocido'
-    }
-  }
-
-  return {
-    status: delivery?.status,
-    statusLabel: getStatusLabel(delivery?.status),
-    delivery,
-  }
-}
+// Nota: useDelivery y useUserDeliveries están definidos más abajo usando eventos
+// useDeliveryStatus se moverá después de useDelivery para evitar dependencia circular
 
 // Hook para verificar si una dirección es un centro autorizado
 export function useIsRecyclingCenter(centerAddress: `0x${string}` | undefined) {
@@ -1045,7 +975,8 @@ export function usePendingDeliveries() {
   }
 }
 
-// Hook para obtener una entrega específica por ID
+// Hook para obtener una entrega específica por ID usando el mapping deliveries
+// Esta versión reemplaza la anterior que usaba getDelivery
 export function useDelivery(deliveryId: bigint | undefined) {
   const { data, isLoading, error } = useReadContract({
     address: RECYCLING_CONTRACT_ADDRESS,
