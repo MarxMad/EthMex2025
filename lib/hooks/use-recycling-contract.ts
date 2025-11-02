@@ -932,7 +932,7 @@ export function usePendingDeliveries() {
     loadPendingDeliveries()
   }, [publicClient])
 
-  // Escuchar nuevos eventos en tiempo real
+  // Escuchar nuevos eventos en tiempo real - DeliveryCreated
   useWatchContractEvent({
     address: RECYCLING_CONTRACT_ADDRESS,
     abi: RECYCLING_CONTRACT_ABI,
@@ -952,22 +952,32 @@ export function usePendingDeliveries() {
 
           const status = delivery[6] as DeliveryStatus
           if (status === DeliveryStatus.Pending) {
-            setDeliveries(prev => [{
-              id: deliveryId,
-              delivery: {
-                user: delivery[0],
-                recyclingCenter: delivery[1],
-                materialType: delivery[2],
-                amount: delivery[3],
-                paymentAmount: delivery[4],
-                paymentToken: delivery[5] as PaymentToken,
-                status: status,
-                createdAt: delivery[7],
-                validatedAt: delivery[8],
-                rejectionReason: delivery[9],
-                metadata: delivery[10],
-              } as Delivery,
-            }, ...prev])
+            // Evitar duplicados: verificar si ya existe
+            setDeliveries(prev => {
+              const exists = prev.some(d => d.id === deliveryId)
+              if (exists) return prev
+
+              return [{
+                id: deliveryId,
+                delivery: {
+                  user: delivery[0],
+                  recyclingCenter: delivery[1],
+                  materialType: delivery[2],
+                  amount: delivery[3],
+                  paymentAmount: delivery[4],
+                  paymentToken: delivery[5] as PaymentToken,
+                  status: status,
+                  createdAt: delivery[7],
+                  validatedAt: delivery[8],
+                  rejectionReason: delivery[9],
+                  metadata: delivery[10],
+                } as Delivery,
+              }, ...prev].sort((a, b) => {
+                const timeA = Number(a.delivery.createdAt)
+                const timeB = Number(b.delivery.createdAt)
+                return timeB - timeA
+              })
+            })
           }
         } catch (err) {
           console.error('Error loading new pending delivery:', err)
@@ -975,6 +985,94 @@ export function usePendingDeliveries() {
       })
     },
   })
+
+  // Escuchar cambios de estado - DeliveryValidated
+  useWatchContractEvent({
+    address: RECYCLING_CONTRACT_ADDRESS,
+    abi: RECYCLING_CONTRACT_ABI,
+    eventName: 'DeliveryValidated',
+    onLogs(logs) {
+      logs.forEach((log) => {
+        const deliveryId = log.args.deliveryId as bigint
+        // Remover de la lista de pendientes cuando se valida
+        setDeliveries(prev => prev.filter(d => d.id !== deliveryId))
+      })
+    },
+  })
+
+  // Escuchar cambios de estado - DeliveryRejected
+  useWatchContractEvent({
+    address: RECYCLING_CONTRACT_ADDRESS,
+    abi: RECYCLING_CONTRACT_ABI,
+    eventName: 'DeliveryRejected',
+    onLogs(logs) {
+      logs.forEach((log) => {
+        const deliveryId = log.args.deliveryId as bigint
+        // Remover de la lista de pendientes cuando se rechaza
+        setDeliveries(prev => prev.filter(d => d.id !== deliveryId))
+      })
+    },
+  })
+
+  // Refrescar periódicamente para asegurar sincronización (cada 30 segundos)
+  useEffect(() => {
+    if (!publicClient) return
+
+    const interval = setInterval(async () => {
+      try {
+        // Actualizar el estado de todas las entregas actuales
+        const updatedDeliveries = await Promise.all(
+          deliveries.map(async ({ id }) => {
+            try {
+              const delivery = await publicClient.readContract({
+                address: RECYCLING_CONTRACT_ADDRESS,
+                abi: RECYCLING_CONTRACT_ABI,
+                functionName: 'deliveries',
+                args: [id],
+              }) as any
+
+              const status = delivery[6] as DeliveryStatus
+              if (status !== DeliveryStatus.Pending) {
+                return null // Remover si ya no está pendiente
+              }
+
+              return {
+                id,
+                delivery: {
+                  user: delivery[0],
+                  recyclingCenter: delivery[1],
+                  materialType: delivery[2],
+                  amount: delivery[3],
+                  paymentAmount: delivery[4],
+                  paymentToken: delivery[5] as PaymentToken,
+                  status: status,
+                  createdAt: delivery[7],
+                  validatedAt: delivery[8],
+                  rejectionReason: delivery[9],
+                  metadata: delivery[10],
+                } as Delivery,
+              }
+            } catch {
+              return null
+            }
+          })
+        )
+
+        const validDeliveries = updatedDeliveries.filter(Boolean) as Array<{ id: bigint, delivery: Delivery }>
+        validDeliveries.sort((a, b) => {
+          const timeA = Number(a.delivery.createdAt)
+          const timeB = Number(b.delivery.createdAt)
+          return timeB - timeA
+        })
+
+        setDeliveries(validDeliveries)
+      } catch (error) {
+        console.error('Error refreshing pending deliveries:', error)
+      }
+    }, 30000) // Cada 30 segundos
+
+    return () => clearInterval(interval)
+  }, [publicClient, deliveries.length]) // Solo cuando cambia la cantidad de entregas
 
   return {
     deliveries,

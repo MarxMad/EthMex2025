@@ -64,11 +64,17 @@ export default function CentroDashboard() {
     }
   }
 
+  // Solo filtrar por recolector en el cliente después del mount para evitar problemas de hidratación
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Separar entregas por estado
   // Los centros solo ven entregas que tienen recolector asignado (aceptadas)
   const solicitudesPendientes = deliveries
     .filter(({ id, delivery }) => 
-      delivery.status === DeliveryStatus.Pending && hasCollector(id)
+      delivery.status === DeliveryStatus.Pending && (mounted ? hasCollector(id) : true)
     )
     .map(({ id, delivery }) => {
       const metadata = parseMetadata(delivery.metadata)
@@ -85,7 +91,7 @@ export default function CentroDashboard() {
         ? `${Number(pagoAmount) / 1e6} USDC`
         : `${formatEther(delivery.paymentAmount)} MXNB`
 
-      const collectorAddress = getDeliveryCollector(id)
+      const collectorAddress = mounted ? getDeliveryCollector(id) : null
       const collectorDisplay = collectorAddress 
         ? `${collectorAddress.slice(0, 6)}...${collectorAddress.slice(-4)}`
         : "Sin asignar"
