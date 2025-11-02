@@ -362,7 +362,7 @@ export function useMaterialPrice(
   token: PaymentToken,
   centerAddress: `0x${string}` | undefined // Requerido para V3
 ) {
-  const { data, isLoading, error } = useReadContract({
+  const { data, isLoading, error, refetch } = useReadContract({
     address: RECYCLING_CONTRACT_ADDRESS,
     abi: RECYCLING_CONTRACT_ABI,
     functionName: 'getMaterialPrice',
@@ -371,13 +371,35 @@ export function useMaterialPrice(
       : undefined,
     query: {
       enabled: materialType !== undefined && centerAddress !== undefined,
+      // Refetch cada 5 segundos si no hay precio (puede que se haya configurado recientemente)
+      refetchInterval: (query) => {
+        const price = query.state.data as bigint | undefined
+        // Si no hay precio y tenemos los parámetros, refetch cada 5 segundos
+        return (!price || price === 0n) && materialType !== undefined && centerAddress !== undefined ? 5000 : false
+      },
     },
   })
+
+  // Log para debugging - ayuda a identificar problemas con precios
+  useEffect(() => {
+    if (materialType && centerAddress) {
+      console.log(`[useMaterialPrice] Consultando precio:`, {
+        materialType,
+        centerAddress: centerAddress.slice(0, 10) + '...',
+        token: token === PaymentToken.ETH ? 'ETH' : token === PaymentToken.USDC ? 'USDC' : 'MXNB',
+        price: data?.toString(),
+        hasPrice: data && data > 0n,
+        isLoading,
+        error: error?.message,
+      })
+    }
+  }, [materialType, centerAddress, token, data, isLoading, error])
 
   return {
     price: data as bigint | undefined,
     isLoading,
     error,
+    refetch, // Exponer refetch para que se pueda llamar manualmente
   }
 }
 

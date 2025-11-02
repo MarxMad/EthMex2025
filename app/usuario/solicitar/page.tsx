@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { usePublicClient } from "wagmi"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -35,12 +36,27 @@ function MaterialOption({
   paymentToken: PaymentToken
   centerAddress: `0x${string}` | undefined
 }) {
-  const { price, isLoading } = useMaterialPrice(
+  const { price, isLoading, error } = useMaterialPrice(
     materialType,
     paymentToken,
     centerAddress
   )
   const hasPrice = price && price > 0n
+  
+  // Log para debugging - remover en producción
+  useEffect(() => {
+    if (centerAddress && materialType) {
+      console.log(`[MaterialOption] ${materialType} (${label}):`, {
+        materialType,
+        paymentToken,
+        centerAddress,
+        price: price?.toString(),
+        hasPrice,
+        isLoading,
+        error: error?.message
+      })
+    }
+  }, [materialType, paymentToken, centerAddress, price, hasPrice, isLoading, error, label])
   
   return (
     <div className={`flex items-center space-x-2 border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer ${
@@ -413,19 +429,31 @@ export default function SolicitarRecoleccionPage() {
                       ? 'text-green-700 dark:text-green-400' 
                       : 'text-yellow-700 dark:text-yellow-400'
                   }`}>
-                    {materialPrice && materialPrice > 0n ? (
+                    {loadingPrice ? (
+                      <>Cargando precio...</>
+                    ) : materialPrice && materialPrice > 0n ? (
                       <>
-                        <strong>Precio configurado:</strong> {paymentToken === PaymentToken.ETH 
+                        <strong>✅ Precio configurado:</strong> {paymentToken === PaymentToken.ETH 
                           ? `${formatEther(materialPrice)} ETH/kg`
                           : paymentToken === PaymentToken.USDC
                           ? `${Number(materialPrice) / 1e6} USDC/kg`
                           : `${formatEther(materialPrice)} MXNB/kg`
                         } para {formData.tipoMaterial}
+                        <br />
+                        <span className="text-xs opacity-75 mt-1 block">
+                          Material: "{formData.tipoMaterial}" | Token: {paymentToken === PaymentToken.ETH ? 'ETH' : paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'} | Centro: {selectedCenter.slice(0, 6)}...{selectedCenter.slice(-4)}
+                        </span>
                       </>
                     ) : (
                       <>
                         <strong>⚠️ Precio no configurado:</strong> Este material aún no tiene precio configurado para este centro. 
                         Contacta al centro o selecciona otro material.
+                        <br />
+                        <span className="text-xs opacity-75 mt-1 block">
+                          Verificando: Material "{formData.tipoMaterial}" | Token: {paymentToken === PaymentToken.ETH ? 'ETH' : paymentToken === PaymentToken.USDC ? 'USDC' : 'MXNB'} | Centro: {selectedCenter.slice(0, 6)}...{selectedCenter.slice(-4)}
+                          <br />
+                          <strong>Nota:</strong> Revisa la consola del navegador (F12) para ver los logs de debugging.
+                        </span>
                       </>
                     )}
                   </AlertDescription>
