@@ -48,7 +48,7 @@ export function useCreateDelivery() {
       })
 
       // Para ETH: calcular y enviar el valor correcto
-      let value: bigint | undefined = undefined
+      let value: bigint = 0n
       if (paymentToken === PaymentToken.ETH) {
         if (!valueAmount || parseFloat(valueAmount) <= 0) {
           throw new Error('Debe proporcionar un monto válido para pagos en ETH')
