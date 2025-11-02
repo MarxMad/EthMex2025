@@ -10,8 +10,44 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "CriKula - El Uber del Reciclaje",
-  description: "Conectamos usuarios, recolectores y centros de reciclaje para transformar residuos en oportunidades",
+  description: "Conectamos usuarios, recolectores y centros de reciclaje para transformar residuos en oportunidades mediante blockchain",
   generator: "v0.app",
+  keywords: ["reciclaje", "blockchain", "economía circular", "Arbitrum", "web3", "sostenibilidad"],
+  authors: [{ name: "CriKula Team" }],
+  creator: "CriKula",
+  publisher: "CriKula",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://eth-mex2025.vercel.app'),
+  openGraph: {
+    title: "CriKula - El Uber del Reciclaje",
+    description: "Conectamos usuarios, recolectores y centros de reciclaje para transformar residuos en oportunidades mediante blockchain",
+    url: "/",
+    siteName: "CriKula",
+    images: [
+      {
+        url: "/LogoC.jpeg",
+        width: 1200,
+        height: 1200,
+        alt: "CriKula Logo",
+      },
+    ],
+    locale: "es_MX",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CriKula - El Uber del Reciclaje",
+    description: "Conectamos usuarios, recolectores y centros de reciclaje para transformar residuos en oportunidades mediante blockchain",
+    images: ["/LogoC.jpeg"],
+  },
+  icons: {
+    icon: [
+      { url: "/LogoC.jpeg", sizes: "any" },
+    ],
+    apple: [
+      { url: "/LogoC.jpeg", sizes: "180x180" },
+    ],
+  },
+  manifest: "/manifest.json",
 }
 
 export default function RootLayout({
