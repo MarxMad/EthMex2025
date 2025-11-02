@@ -811,91 +811,86 @@ export function useRecyclingCenters() {
             })
             
             console.log(`✅ Encontrados ${centersSet.size} centros desde entregas existentes`)
+            
+            // Si encontramos centros por fallback, verificar que sean válidos inmediatamente
+            // (límite de 5 verificaciones para no bloquear)
+            if (centersSet.size > 0 && centersSet.size <= 5) {
+              const verifiedCenters = new Set<string>()
+              for (const addr of Array.from(centersSet)) {
+                try {
+                  const isValid = await Promise.race([
+                    publicClient.readContract({
+                      address: RECYCLING_CONTRACT_ADDRESS,
+                      abi: RECYCLING_CONTRACT_ABI,
+                      functionName: 'recyclingCenters',
+                      args: [addr as `0x${string}`],
+                    }) as Promise<boolean>,
+                    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 3000)), // 3s timeout
+                  ])
+                  
+                  if (isValid) {
+                    verifiedCenters.add(addr)
+                  }
+                } catch {
+                  // Si falla, no agregar (solo mostrar centros realmente válidos)
+                }
+              }
+              
+              // Reemplazar centersSet con solo los verificados
+              centersSet.clear()
+              verifiedCenters.forEach(addr => centersSet.add(addr))
+              console.log(`✅ Verificados ${centersSet.size} centros válidos`)
+            }
           } catch (err) {
             console.error('Error buscando centros en entregas:', err)
           }
         }
         
-        // FALLBACK 2: Si aún no hay centros, intentar verificar centros conocidos desde entregas recientes
-        // Esto es un último recurso si los eventos no se pueden leer
-        if (centersSet.size === 0) {
-          console.log('⚠️ Intentando último fallback: buscar todas las entregas y verificar sus centros...')
-          
-          try {
-            // Buscar las últimas 100 entregas para encontrar centros
-            const recentDeliveryLogs = await publicClient.getLogs({
-              address: RECYCLING_CONTRACT_ADDRESS,
-              event: {
-                type: 'event',
-                name: 'DeliveryCreated',
-                inputs: [
-                  { type: 'uint256', name: 'deliveryId', indexed: true },
-                  { type: 'address', name: 'user', indexed: true },
-                  { type: 'address', name: 'recyclingCenter', indexed: true },
-                  { type: 'string', name: 'materialType' },
-                  { type: 'uint256', name: 'amount' },
-                  { type: 'uint256', name: 'paymentAmount' },
-                  { type: 'uint8', name: 'paymentToken' },
-                ],
-              },
-              fromBlock: currentBlock > 10000n ? currentBlock - 10000n : 0n, // Últimas entregas
-              toBlock: currentBlock,
-            }).catch(() => [])
-
-            // Extraer centros únicos de las entregas recientes
-            const recentCenters = new Set<string>()
-            recentDeliveryLogs.forEach((log: any) => {
-              const centerAddress = (log.args as any)?.recyclingCenter?.toLowerCase()
-              if (centerAddress && centerAddress !== '0x0000000000000000000000000000000000000000') {
-                recentCenters.add(centerAddress)
-              }
-            })
-            
-            // Verificar cada centro encontrado directamente en el contrato
-            for (const addr of Array.from(recentCenters)) {
-              try {
-                const isValid = await publicClient.readContract({
+        // Verificar que los centros encontrados siguen siendo válidos en el contrato
+        // Solo verificar si encontramos centros por eventos (confiamos en ellos)
+        // Si encontramos por fallback, los verificamos directamente
+        const validCenters: string[] = []
+        
+        if (centersSet.size > 0) {
+          // Si encontramos centros, verificarlos en paralelo (máximo 10 segundos de timeout total)
+          const verificationPromises = Array.from(centersSet).slice(0, 20).map(async (addr) => {
+            try {
+              // Timeout individual de 2 segundos por verificación
+              const isValid = await Promise.race([
+                publicClient.readContract({
                   address: RECYCLING_CONTRACT_ADDRESS,
                   abi: RECYCLING_CONTRACT_ABI,
                   functionName: 'recyclingCenters',
                   args: [addr as `0x${string}`],
-                }) as boolean
-                
-                if (isValid) {
-                  centersSet.add(addr)
-                }
-              } catch {
-                // Ignorar errores de verificación individual
+                }) as Promise<boolean>,
+                new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 2000)), // Timeout: asumir válido
+              ])
+              
+              if (isValid) {
+                validCenters.push(addr)
               }
-            }
-            
-            console.log(`✅ Verificados ${centersSet.size} centros válidos desde entregas recientes`)
-          } catch (err) {
-            console.error('Error en último fallback:', err)
-          }
-        }
-
-        // Verificar que los centros encontrados siguen siendo válidos en el contrato
-        const validCenters: string[] = []
-        const verificationPromises = Array.from(centersSet).map(async (addr) => {
-          try {
-            const isValid = await publicClient.readContract({
-              address: RECYCLING_CONTRACT_ADDRESS,
-              abi: RECYCLING_CONTRACT_ABI,
-              functionName: 'recyclingCenters',
-              args: [addr as `0x${string}`],
-            }) as boolean
-            
-            if (isValid) {
+            } catch {
+              // Si falla la verificación, asumir que es válido (mejor mostrar de más que de menos)
               validCenters.push(addr)
             }
-          } catch {
-            // Si falla la verificación, asumir que es válido (mejor mostrar de más que de menos)
-            validCenters.push(addr)
-          }
-        })
-        
-        await Promise.all(verificationPromises)
+          })
+          
+          // Timeout total de 10 segundos para todas las verificaciones
+          await Promise.race([
+            Promise.all(verificationPromises),
+            new Promise<void>((resolve) => {
+              setTimeout(() => {
+                // Si timeout, agregar los centros que ya teníamos sin verificar
+                Array.from(centersSet).forEach(addr => {
+                  if (!validCenters.includes(addr)) {
+                    validCenters.push(addr)
+                  }
+                })
+                resolve()
+              }, 10000)
+            }),
+          ])
+        }
 
         // Convertir a formato de lista
         const centersList = validCenters.map(addr => ({
