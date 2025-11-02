@@ -16,6 +16,7 @@ import { AlertCircle } from "lucide-react"
 import {
   Recycle,
   ArrowLeft,
+  ArrowRight,
   Building2,
   Mail,
   Phone,
@@ -30,7 +31,7 @@ export default function RegistroCentroPage() {
   const router = useRouter()
   const { address, isConnected } = useAccount()
   const { isOwner, isLoading: checkingOwner } = useIsOwner()
-  const { addRecyclingCenter, isPending, isSuccess, error } = useAddRecyclingCenter()
+  const { addRecyclingCenter, hash, isPending, isSuccess, error } = useAddRecyclingCenter()
   const [paso, setPaso] = useState(1)
   const [centerWallet, setCenterWallet] = useState("")
   const [errorMessage, setErrorMessage] = useState<string>("")
@@ -89,13 +90,23 @@ export default function RegistroCentroPage() {
       return
     }
 
+    if (checkingOwner) {
+      setErrorMessage("Verificando permisos de owner... Por favor espera.")
+      return
+    }
+
+    // VALIDAR QUE SEA OWNER ANTES de intentar la transacción
+    // Esto evita que MetaMask intente estimar gas para una transacción que fallará
+    if (!isOwner) {
+      setErrorMessage("Solo el owner del contrato puede agregar centros autorizados. Tu wallet conectada no es el owner del contrato. Si eres el owner, asegúrate de estar usando la wallet correcta.")
+      return
+    }
+
     if (!centerWallet || !centerWallet.match(/^0x[a-fA-F0-9]{40}$/)) {
       setErrorMessage("Debes ingresar una dirección de wallet válida (0x...)")
       return
     }
 
-    // Para la demo: permitir intentar la transacción
-    // El contrato validará si es owner o no
     try {
       setErrorMessage("")
       // Llamar a la función del contrato - esto abrirá MetaMask para firmar
@@ -108,7 +119,7 @@ export default function RegistroCentroPage() {
       if (err?.message?.includes("user rejected") || err?.message?.includes("User denied")) {
         setErrorMessage("Transacción cancelada. No se agregó el centro.")
       } else if (err?.message?.includes("Only owner") || err?.message?.includes("OwnableUnauthorizedAccount")) {
-        setErrorMessage("Solo el owner del contrato puede agregar centros autorizados. Si eres el owner, verifica que estés usando la wallet correcta.")
+        setErrorMessage("Error: Solo el owner del contrato puede agregar centros. Verifica que estés usando la wallet correcta.")
       } else if (err?.message?.includes("Center already authorized") || err?.message?.includes("already authorized")) {
         setErrorMessage("Este centro ya está autorizado en el contrato.")
       } else {
@@ -616,9 +627,22 @@ export default function RegistroCentroPage() {
               <Button 
                 onClick={handleSubmit} 
                 className="flex-1" 
-                disabled={isPending || !isConnected || checkingOwner || !centerWallet || !centerWallet.match(/^0x[a-fA-F0-9]{40}$/)}
+                disabled={
+                  isPending || 
+                  !isConnected || 
+                  checkingOwner || 
+                  !isOwner ||  // BLOQUEAR si no es owner
+                  !centerWallet || 
+                  !centerWallet.match(/^0x[a-fA-F0-9]{40}$/)
+                }
               >
-                {isPending ? "Firmando transacción..." : isSuccess ? "¡Agregado!" : "Agregar al Contrato"}
+                {isPending 
+                  ? "Firmando transacción..." 
+                  : isSuccess 
+                  ? "¡Agregado!" 
+                  : !isOwner && !checkingOwner
+                  ? "Solo el Owner puede agregar"
+                  : "Agregar al Contrato"}
               </Button>
             </div>
             
@@ -646,13 +670,45 @@ export default function RegistroCentroPage() {
                 : "Tu solicitud para registrar el centro de reciclaje ha sido enviada exitosamente. Nuestro equipo revisará la información y documentación en los próximos 2-5 días hábiles."}
             </p>
             {isSuccess && (
-              <div className="bg-primary/10 rounded-lg p-4 mb-6 border border-primary/20">
-                <p className="text-sm text-foreground mb-2">
-                  <strong>Centro Autorizado:</strong> {centerWallet}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Este centro ahora puede recibir entregas a través del contrato inteligente.
-                </p>
+              <div className="space-y-4 mb-6">
+                <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+                  <p className="text-sm text-foreground mb-2">
+                    <strong>Centro Autorizado:</strong> {centerWallet}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Este centro ahora puede recibir entregas a través del contrato inteligente.
+                  </p>
+                </div>
+                
+                {hash && (
+                  <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                    <p className="text-sm font-semibold text-foreground mb-2">Transacción Confirmada</p>
+                    <div className="space-y-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Hash:</span>
+                        <code className="text-xs font-mono bg-background px-2 py-1 rounded border break-all">
+                          {hash}
+                        </code>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full sm:w-auto"
+                        asChild
+                      >
+                        <a 
+                          href={`https://sepolia.arbiscan.io/tx/${hash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2"
+                        >
+                          Ver en Arbiscan
+                          <ArrowRight className="w-4 h-4" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {!isSuccess && (
