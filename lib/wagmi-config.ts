@@ -4,23 +4,45 @@ import { createConfig, http } from 'wagmi'
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { arbitrumSepolia, scrollSepolia } from 'viem/chains'
 
-// Obtener projectId de WalletConnect Cloud
-// IMPORTANTE: Para producción, obtén un projectId real en https://cloud.walletconnect.com
-// y agrega NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID en las variables de entorno de Vercel
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000'
+// Solo ejecutar la configuración en el cliente para evitar problemas con indexedDB durante SSR
+let config: ReturnType<typeof getDefaultConfig> | null = null
 
-// Verificar que tenemos un projectId válido (debe ser una cadena hexadecimal de 32 caracteres)
-if (!projectId || projectId === '00000000000000000000000000000000' || projectId.length !== 32) {
+// Obtener projectId de WalletConnect Cloud
+const projectId = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '00000000000000000000000000000000')
+  : '00000000000000000000000000000000'
+
+// Verificar que tenemos un projectId válido
+if (typeof window !== 'undefined' && (!projectId || projectId === '00000000000000000000000000000000' || projectId.length !== 32)) {
   console.warn('⚠️ WalletConnect ProjectId no configurado. Algunas funcionalidades pueden no estar disponibles. Obtén uno en https://cloud.walletconnect.com')
 }
 
-// Configuración de wagmi con RainbowKit para Arbitrum Sepolia y Scroll Sepolia
-export const config = getDefaultConfig({
-  appName: 'CriKula',
-  projectId: projectId,
+// Crear config solo en el cliente
+if (typeof window !== 'undefined') {
+  try {
+    config = getDefaultConfig({
+      appName: 'CriKula',
+      projectId: projectId,
+      chains: [arbitrumSepolia, scrollSepolia],
+      ssr: false,
+    })
+  } catch (error) {
+    console.error('Error creating wagmi config:', error)
+  }
+}
+
+// Si no hay config (durante SSR), crear uno básico sin RainbowKit
+export const wagmiConfig = config || createConfig({
   chains: [arbitrumSepolia, scrollSepolia],
-  ssr: false, // Deshabilitar SSR para evitar problemas
+  connectors: [],
+  transports: {
+    [arbitrumSepolia.id]: http('https://sepolia-rollup.arbitrum.io/rpc'),
+    [scrollSepolia.id]: http(),
+  },
 })
 
 export const arbitrumSepoliaChain = arbitrumSepolia
 export const scrollSepoliaChain = scrollSepolia
+
+// Para compatibilidad con código existente
+export { wagmiConfig as config }

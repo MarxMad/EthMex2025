@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { WagmiProvider as WagmiProviderBase } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { config } from '@/lib/wagmi-config'
+import { wagmiConfig as config } from '@/lib/wagmi-config'
 
 // Cargar RainbowKitProvider dinámicamente solo en el cliente para evitar problemas con indexedDB
 const RainbowKitProvider = dynamic(
@@ -12,7 +12,7 @@ const RainbowKitProvider = dynamic(
   { ssr: false }
 )
 
-// Importar estilos de RainbowKit
+// Importar estilos de RainbowKit solo en el cliente
 if (typeof window !== 'undefined') {
   import('@rainbow-me/rainbowkit/styles.css')
 }
