@@ -5,11 +5,11 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Logo } from "@/components/logo"
 import { useUserDeliveries } from "@/lib/hooks/use-recycling-contract"
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import {
-  Recycle,
   Plus,
   Clock,
   CheckCircle2,
