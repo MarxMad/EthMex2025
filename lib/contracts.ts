@@ -3,7 +3,7 @@
 // Direcciones del contrato RecyclingEscrowV3 por red
 export const RECYCLING_CONTRACT_ADDRESSES = {
   arbitrumSepolia: '0x9eac6fff8014b159bd930cb526c3059a1a65e298' as const, // V3 desplegado en Arbitrum Sepolia
-  scrollSepolia: '' as const, // Se actualizará cuando se despliegue en Scroll
+  scrollSepolia: '0xbb6927387f2fd960f171ac10ba01b4698ed6f93f' as const, // V3 desplegado en Scroll Sepolia
 } as const
 
 // Función para obtener la dirección del contrato según la chain ID
