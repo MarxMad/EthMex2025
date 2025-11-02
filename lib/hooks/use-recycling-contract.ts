@@ -260,12 +260,14 @@ export function useAddRecyclingCenter() {
 
       // Llamada simple: el contrato solo recibe la dirección del centro
       // addRecyclingCenter(address _center) es nonpayable - DEBE ser value: 0n explícitamente
+      // Limitar gas a un máximo razonable (200k gas es más que suficiente para esta operación)
       const result = await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'addRecyclingCenter',
         args: [normalizedAddress],
         value: 0n, // EXPLÍCITAMENTE 0 - función nonpayable no puede recibir ETH
+        gas: 200000n, // Límite máximo de gas (muy generoso para esta operación simple)
       } as const)
 
       console.log('✅ Transacción enviada:', result)
