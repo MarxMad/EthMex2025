@@ -754,3 +754,336 @@ export function useRecyclingCenters() {
   }
 }
 
+// Hook para obtener entregas del usuario conectado usando eventos
+export function useUserDeliveries() {
+  const { address } = useAccount()
+  const publicClient = usePublicClient()
+  const [deliveries, setDeliveries] = useState<Array<{ id: bigint, delivery: Delivery }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadDeliveries = async () => {
+      if (!address || !publicClient) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        const currentBlock = await publicClient.getBlockNumber()
+        const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n
+
+        // Obtener eventos DeliveryCreated para este usuario
+        const logs = await publicClient.getLogs({
+          address: RECYCLING_CONTRACT_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'DeliveryCreated',
+            inputs: [
+              { type: 'uint256', name: 'deliveryId', indexed: true },
+              { type: 'address', name: 'user', indexed: true },
+              { type: 'address', name: 'recyclingCenter', indexed: true },
+              { type: 'string', name: 'materialType' },
+              { type: 'uint256', name: 'amount' },
+              { type: 'uint256', name: 'paymentAmount' },
+              { type: 'uint8', name: 'paymentToken' },
+            ],
+          },
+          args: {
+            user: address.toLowerCase() as `0x${string}`,
+          },
+          fromBlock,
+          toBlock: 'latest',
+        }).catch(() => [])
+
+        // Obtener detalles de cada entrega
+        const deliveryPromises = logs.map(async (log: any) => {
+          const deliveryId = log.args.deliveryId as bigint
+          try {
+            const delivery = await publicClient.readContract({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              abi: RECYCLING_CONTRACT_ABI,
+              functionName: 'deliveries',
+              args: [deliveryId],
+            }) as any
+
+            return {
+              id: deliveryId,
+              delivery: {
+                user: delivery[0],
+                recyclingCenter: delivery[1],
+                materialType: delivery[2],
+                amount: delivery[3],
+                paymentAmount: delivery[4],
+                paymentToken: delivery[5] as PaymentToken,
+                status: delivery[6] as DeliveryStatus,
+                createdAt: delivery[7],
+                validatedAt: delivery[8],
+                rejectionReason: delivery[9],
+                metadata: delivery[10],
+              } as Delivery,
+            }
+          } catch (err) {
+            console.error(`Error loading delivery ${deliveryId}:`, err)
+            return null
+          }
+        })
+
+        const deliveriesData = (await Promise.all(deliveryPromises)).filter(Boolean) as Array<{ id: bigint, delivery: Delivery }>
+        
+        // Ordenar por fecha de creación (más reciente primero)
+        deliveriesData.sort((a, b) => {
+          const timeA = Number(a.delivery.createdAt)
+          const timeB = Number(b.delivery.createdAt)
+          return timeB - timeA
+        })
+
+        setDeliveries(deliveriesData)
+      } catch (error) {
+        console.error('Error loading user deliveries:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadDeliveries()
+  }, [address, publicClient])
+
+  // Escuchar nuevos eventos en tiempo real
+  useWatchContractEvent({
+    address: RECYCLING_CONTRACT_ADDRESS,
+    abi: RECYCLING_CONTRACT_ABI,
+    eventName: 'DeliveryCreated',
+    onLogs(logs) {
+      logs.forEach(async (log) => {
+        if (log.args.user?.toLowerCase() === address?.toLowerCase()) {
+          const deliveryId = log.args.deliveryId as bigint
+          if (!publicClient) return
+
+          try {
+            const delivery = await publicClient.readContract({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              abi: RECYCLING_CONTRACT_ABI,
+              functionName: 'deliveries',
+              args: [deliveryId],
+            }) as any
+
+            setDeliveries(prev => [{
+              id: deliveryId,
+              delivery: {
+                user: delivery[0],
+                recyclingCenter: delivery[1],
+                materialType: delivery[2],
+                amount: delivery[3],
+                paymentAmount: delivery[4],
+                paymentToken: delivery[5] as PaymentToken,
+                status: delivery[6] as DeliveryStatus,
+                createdAt: delivery[7],
+                validatedAt: delivery[8],
+                rejectionReason: delivery[9],
+                metadata: delivery[10],
+              } as Delivery,
+            }, ...prev])
+          } catch (err) {
+            console.error('Error loading new delivery:', err)
+          }
+        }
+      })
+    },
+  })
+
+  return {
+    deliveries,
+    isLoading,
+  }
+}
+
+// Hook para obtener entregas pendientes (para recolectores)
+export function usePendingDeliveries() {
+  const publicClient = usePublicClient()
+  const [deliveries, setDeliveries] = useState<Array<{ id: bigint, delivery: Delivery }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadPendingDeliveries = async () => {
+      if (!publicClient) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        const currentBlock = await publicClient.getBlockNumber()
+        const fromBlock = currentBlock > 1000n ? currentBlock - 1000n : 0n
+
+        // Obtener todos los eventos DeliveryCreated recientes
+        const logs = await publicClient.getLogs({
+          address: RECYCLING_CONTRACT_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'DeliveryCreated',
+            inputs: [
+              { type: 'uint256', name: 'deliveryId', indexed: true },
+              { type: 'address', name: 'user', indexed: true },
+              { type: 'address', name: 'recyclingCenter', indexed: true },
+              { type: 'string', name: 'materialType' },
+              { type: 'uint256', name: 'amount' },
+              { type: 'uint256', name: 'paymentAmount' },
+              { type: 'uint8', name: 'paymentToken' },
+            ],
+          },
+          fromBlock,
+          toBlock: 'latest',
+        }).catch(() => [])
+
+        // Obtener detalles de cada entrega y filtrar solo las pendientes
+        const deliveryPromises = logs.map(async (log: any) => {
+          const deliveryId = log.args.deliveryId as bigint
+          try {
+            const delivery = await publicClient.readContract({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              abi: RECYCLING_CONTRACT_ABI,
+              functionName: 'deliveries',
+              args: [deliveryId],
+            }) as any
+
+            const status = delivery[6] as DeliveryStatus
+            // Solo incluir si está pendiente
+            if (status !== DeliveryStatus.Pending) {
+              return null
+            }
+
+            return {
+              id: deliveryId,
+              delivery: {
+                user: delivery[0],
+                recyclingCenter: delivery[1],
+                materialType: delivery[2],
+                amount: delivery[3],
+                paymentAmount: delivery[4],
+                paymentToken: delivery[5] as PaymentToken,
+                status: status,
+                createdAt: delivery[7],
+                validatedAt: delivery[8],
+                rejectionReason: delivery[9],
+                metadata: delivery[10],
+              } as Delivery,
+            }
+          } catch (err) {
+            console.error(`Error loading delivery ${deliveryId}:`, err)
+            return null
+          }
+        })
+
+        const deliveriesData = (await Promise.all(deliveryPromises)).filter(Boolean) as Array<{ id: bigint, delivery: Delivery }>
+        
+        // Ordenar por fecha de creación (más reciente primero)
+        deliveriesData.sort((a, b) => {
+          const timeA = Number(a.delivery.createdAt)
+          const timeB = Number(b.delivery.createdAt)
+          return timeB - timeA
+        })
+
+        setDeliveries(deliveriesData)
+      } catch (error) {
+        console.error('Error loading pending deliveries:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadPendingDeliveries()
+  }, [publicClient])
+
+  // Escuchar nuevos eventos en tiempo real
+  useWatchContractEvent({
+    address: RECYCLING_CONTRACT_ADDRESS,
+    abi: RECYCLING_CONTRACT_ABI,
+    eventName: 'DeliveryCreated',
+    onLogs(logs) {
+      logs.forEach(async (log) => {
+        const deliveryId = log.args.deliveryId as bigint
+        if (!publicClient) return
+
+        try {
+          const delivery = await publicClient.readContract({
+            address: RECYCLING_CONTRACT_ADDRESS,
+            abi: RECYCLING_CONTRACT_ABI,
+            functionName: 'deliveries',
+            args: [deliveryId],
+          }) as any
+
+          const status = delivery[6] as DeliveryStatus
+          if (status === DeliveryStatus.Pending) {
+            setDeliveries(prev => [{
+              id: deliveryId,
+              delivery: {
+                user: delivery[0],
+                recyclingCenter: delivery[1],
+                materialType: delivery[2],
+                amount: delivery[3],
+                paymentAmount: delivery[4],
+                paymentToken: delivery[5] as PaymentToken,
+                status: status,
+                createdAt: delivery[7],
+                validatedAt: delivery[8],
+                rejectionReason: delivery[9],
+                metadata: delivery[10],
+              } as Delivery,
+            }, ...prev])
+          }
+        } catch (err) {
+          console.error('Error loading new pending delivery:', err)
+        }
+      })
+    },
+  })
+
+  return {
+    deliveries,
+    isLoading,
+  }
+}
+
+// Hook para obtener una entrega específica por ID
+export function useDelivery(deliveryId: bigint | undefined) {
+  const { data, isLoading, error } = useReadContract({
+    address: RECYCLING_CONTRACT_ADDRESS,
+    abi: RECYCLING_CONTRACT_ABI,
+    functionName: 'deliveries',
+    args: deliveryId !== undefined ? [deliveryId] : undefined,
+    query: {
+      enabled: deliveryId !== undefined,
+    },
+  })
+
+  if (!data) {
+    return {
+      delivery: undefined,
+      isLoading,
+      error,
+    }
+  }
+
+  const deliveryData = data as any
+  const delivery: Delivery = {
+    user: deliveryData[0],
+    recyclingCenter: deliveryData[1],
+    materialType: deliveryData[2],
+    amount: deliveryData[3],
+    paymentAmount: deliveryData[4],
+    paymentToken: deliveryData[5] as PaymentToken,
+    status: deliveryData[6] as DeliveryStatus,
+    createdAt: deliveryData[7],
+    validatedAt: deliveryData[8],
+    rejectionReason: deliveryData[9],
+    metadata: deliveryData[10],
+  }
+
+  return {
+    delivery,
+    isLoading,
+    error,
+  }
+}
+

@@ -16,7 +16,7 @@ import { useAccount } from "wagmi"
 import { useCreateDelivery, useMaterialPrice, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
 import { PaymentToken } from "@/lib/contracts"
 import { formatEther, parseEther } from "viem"
-import { Recycle, ArrowLeft, Package, Calendar, MapPin, ImageIcon, AlertCircle, Wallet, CheckCircle2 } from "lucide-react"
+import { Recycle, ArrowLeft, ArrowRight, Package, Calendar, MapPin, ImageIcon, AlertCircle, Wallet, CheckCircle2 } from "lucide-react"
 import { RecyclingCenterSelector } from "@/components/recycling-center-selector"
 
 export default function SolicitarRecoleccionPage() {
