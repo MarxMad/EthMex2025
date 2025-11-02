@@ -371,12 +371,23 @@ export default function RecolectorDashboard() {
                       size="sm" 
                       className="bg-primary"
                       onClick={() => handleAcceptDelivery(solicitud.deliveryId)}
-                      disabled={acceptedDeliveries.has(solicitud.deliveryId.toString()) || isAccepting}
+                      disabled={
+                        acceptedDeliveries.has(solicitud.deliveryId.toString()) || 
+                        isAccepting ||
+                        solicitud.isOwnDelivery // Deshabilitar si es propia
+                      }
+                      title={
+                        solicitud.isOwnDelivery
+                          ? "No puedes aceptar tu propia solicitud"
+                          : undefined
+                      }
                     >
                       {isAccepting 
                         ? "Aceptando..."
                         : acceptedDeliveries.has(solicitud.deliveryId.toString()) 
-                        ? "Ya Aceptada" 
+                        ? "Ya Aceptada"
+                        : solicitud.isOwnDelivery
+                        ? "Tu Solicitud"
                         : "Aceptar Recolección"}
                     </Button>
                   </div>

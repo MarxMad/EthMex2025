@@ -632,15 +632,33 @@ export function useRecyclingCenters() {
       try {
         const currentBlock = await publicClient.getBlockNumber()
         
-        // Intentar buscar desde un rango más amplio (10,000 bloques) o desde el bloque 0
-        // Usar una estrategia de chunks para evitar límites de RPC
-        const searchRanges = [
-          { from: currentBlock > 10000n ? currentBlock - 10000n : 0n, to: currentBlock }, // Últimos 10k bloques
-          { from: 0n, to: currentBlock > 10000n ? currentBlock - 10000n : currentBlock }, // Resto si hay más
-        ]
+        // ESTRATEGIA MEJORADA: Buscar centros desde múltiples fuentes
+        // 1. Eventos RecyclingCenterAdded desde el bloque 0 (o desde el despliegue del contrato)
+        // 2. Extraer centros únicos de las entregas existentes (fallback)
+        
+        console.log('🔍 Cargando centros de reciclaje...', {
+          currentBlock: currentBlock.toString(),
+          contractAddress: RECYCLING_CONTRACT_ADDRESS,
+        })
 
         const addedLogs: any[] = []
         const removedLogs: any[] = []
+        
+        // Intentar obtener el bloque de despliegue del contrato (más eficiente que desde 0)
+        // Si falla, buscar desde el bloque 0
+        let fromBlock = 0n
+        try {
+          // Intentar obtener el código del contrato para determinar si existe
+          // Si el contrato fue desplegado recientemente, usar un rango más pequeño
+          // Pero por seguridad, buscar desde bastante atrás
+          fromBlock = currentBlock > 100000n ? currentBlock - 100000n : 0n // Últimos 100k bloques o desde 0
+        } catch {
+          fromBlock = 0n
+        }
+        
+        const searchRanges = [
+          { from: fromBlock, to: currentBlock },
+        ]
 
         // Buscar en chunks para evitar límites de RPC
         for (const range of searchRanges) {
@@ -686,31 +704,44 @@ export function useRecyclingCenters() {
                 const chunkTo = chunkFrom + chunkSize > range.to ? range.to : chunkFrom + chunkSize
                 
                 try {
-                  const chunkAdded = await publicClient.getLogs({
-                    address: RECYCLING_CONTRACT_ADDRESS,
-                    event: {
-                      type: 'event',
-                      name: 'RecyclingCenterAdded',
-                      inputs: [
-                        { type: 'address', name: 'center', indexed: true },
-                      ],
-                    },
-                    fromBlock: chunkFrom,
-                    toBlock: chunkTo,
-                  }).catch(() => [])
-
-                  const chunkRemoved = await publicClient.getLogs({
-                    address: RECYCLING_CONTRACT_ADDRESS,
-                    event: {
-                      type: 'event',
-                      name: 'RecyclingCenterRemoved',
-                      inputs: [
-                        { type: 'address', name: 'center', indexed: true },
-                      ],
-                    },
-                    fromBlock: chunkFrom,
-                    toBlock: chunkTo,
-                  }).catch(() => [])
+                  // Buscar eventos en este chunk con timeout
+                  const chunkPromise = Promise.all([
+                    publicClient.getLogs({
+                      address: RECYCLING_CONTRACT_ADDRESS,
+                      event: {
+                        type: 'event',
+                        name: 'RecyclingCenterAdded',
+                        inputs: [
+                          { type: 'address', name: 'center', indexed: true },
+                        ],
+                      },
+                      fromBlock: chunkFrom,
+                      toBlock: chunkTo,
+                    }).catch(() => []),
+                    publicClient.getLogs({
+                      address: RECYCLING_CONTRACT_ADDRESS,
+                      event: {
+                        type: 'event',
+                        name: 'RecyclingCenterRemoved',
+                        inputs: [
+                          { type: 'address', name: 'center', indexed: true },
+                        ],
+                      },
+                      fromBlock: chunkFrom,
+                      toBlock: chunkTo,
+                    }).catch(() => []),
+                  ]).then(([added, removed]) => ({ added, removed }))
+                  
+                  // Timeout de 10 segundos por chunk
+                  const chunkResult = await Promise.race([
+                    chunkPromise,
+                    new Promise<{ added: any[], removed: any[] }>((resolve) => 
+                      setTimeout(() => resolve({ added: [], removed: [] }), 10000)
+                    ),
+                  ])
+                  
+                  const chunkAdded = chunkResult.added
+                  const chunkRemoved = chunkResult.removed
 
                   addedLogs.push(...chunkAdded)
                   removedLogs.push(...chunkRemoved)
@@ -745,11 +776,75 @@ export function useRecyclingCenters() {
           }
         })
 
+        // FALLBACK: Si no encontramos centros por eventos, buscar en entregas existentes
+        // Esto puede pasar si el RPC tiene problemas leyendo eventos históricos
+        if (centersSet.size === 0) {
+          console.log('⚠️ No se encontraron centros por eventos, buscando en entregas existentes...')
+          
+          try {
+            // Buscar eventos DeliveryCreated para extraer centros únicos
+            const deliveryLogs = await publicClient.getLogs({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              event: {
+                type: 'event',
+                name: 'DeliveryCreated',
+                inputs: [
+                  { type: 'uint256', name: 'deliveryId', indexed: true },
+                  { type: 'address', name: 'user', indexed: true },
+                  { type: 'address', name: 'recyclingCenter', indexed: true },
+                  { type: 'string', name: 'materialType' },
+                  { type: 'uint256', name: 'amount' },
+                  { type: 'uint256', name: 'paymentAmount' },
+                  { type: 'uint8', name: 'paymentToken' },
+                ],
+              },
+              fromBlock: fromBlock,
+              toBlock: currentBlock,
+            }).catch(() => [])
+
+            // Extraer centros únicos de las entregas
+            deliveryLogs.forEach((log: any) => {
+              const centerAddress = (log.args as any)?.recyclingCenter?.toLowerCase()
+              if (centerAddress) {
+                centersSet.add(centerAddress)
+              }
+            })
+            
+            console.log(`✅ Encontrados ${centersSet.size} centros desde entregas existentes`)
+          } catch (err) {
+            console.error('Error buscando centros en entregas:', err)
+          }
+        }
+
+        // Verificar que los centros encontrados siguen siendo válidos en el contrato
+        const validCenters: string[] = []
+        const verificationPromises = Array.from(centersSet).map(async (addr) => {
+          try {
+            const isValid = await publicClient.readContract({
+              address: RECYCLING_CONTRACT_ADDRESS,
+              abi: RECYCLING_CONTRACT_ABI,
+              functionName: 'recyclingCenters',
+              args: [addr as `0x${string}`],
+            }) as boolean
+            
+            if (isValid) {
+              validCenters.push(addr)
+            }
+          } catch {
+            // Si falla la verificación, asumir que es válido (mejor mostrar de más que de menos)
+            validCenters.push(addr)
+          }
+        })
+        
+        await Promise.all(verificationPromises)
+
         // Convertir a formato de lista
-        const centersList = Array.from(centersSet).map(addr => ({
+        const centersList = validCenters.map(addr => ({
           address: addr as `0x${string}`,
           name: `Centro ${addr.slice(0, 6)}...${addr.slice(-4)}`
         }))
+
+        console.log(`✅ Centros cargados: ${centersList.length}`, centersList.map(c => c.address))
 
         setCenters(centersList)
         setIsLoading(false)
