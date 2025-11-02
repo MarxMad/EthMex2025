@@ -158,7 +158,7 @@ export default function RecolectorDashboard() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Logo size={40} />
-            <p className="text-xs text-muted-foreground">Recolector</p>
+              <p className="text-xs text-muted-foreground">Recolector</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
@@ -183,7 +183,7 @@ export default function RecolectorDashboard() {
               }}
               title="Desconectar wallet y salir"
             >
-              <LogOut className="w-5 h-5" />
+                <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
@@ -267,9 +267,9 @@ export default function RecolectorDashboard() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-foreground">Solicitudes Disponibles</h2>
               {solicitudes.length > 0 && (
-                <Badge variant="secondary" className="animate-pulse">
+              <Badge variant="secondary" className="animate-pulse">
                   {solicitudes.length} {solicitudes.length === 1 ? 'nueva' : 'nuevas'}
-                </Badge>
+              </Badge>
               )}
             </div>
             

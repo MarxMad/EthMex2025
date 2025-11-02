@@ -5,7 +5,6 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Navbar } from "@/components/layout/navbar"
 import { RoleBasedRedirect } from "@/components/layout/role-based-redirect"
 import { Truck, Building2, ArrowRight, Leaf, Users, DollarSign, Sparkles, TrendingUp, CheckCircle2, Zap, Shield, Clock } from "lucide-react"
 
@@ -13,7 +12,6 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedRedirect />
-      <Navbar />
 
       {/* Hero Section - Mejorado */}
       <section className="relative overflow-hidden bg-background">

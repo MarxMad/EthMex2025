@@ -101,7 +101,7 @@ export default function RegistroCentroPage() {
   useEffect(() => {
     if (isSuccess && !configuringPrices) {
       // Ir al paso de configuración de precios
-      setPaso(4)
+    setPaso(4)
       setConfiguringPrices(true)
     }
   }, [isSuccess, configuringPrices])
@@ -645,49 +645,49 @@ export default function RegistroCentroPage() {
             <div className="border-t pt-6 mb-6">
               <h3 className="font-semibold text-foreground mb-4">Documentación Requerida</h3>
 
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium text-foreground mb-1">Acta Constitutiva</p>
-                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                  <Button variant="outline" size="sm">
-                    Seleccionar Archivo
-                  </Button>
-                </div>
-
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium text-foreground mb-1">Comprobante de Domicilio</p>
-                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                  <Button variant="outline" size="sm">
-                    Seleccionar Archivo
-                  </Button>
-                </div>
-
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium text-foreground mb-1">Licencia de Funcionamiento</p>
-                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                  <Button variant="outline" size="sm">
-                    Seleccionar Archivo
-                  </Button>
-                </div>
-
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                  <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium text-foreground mb-1">Identificación Oficial del Representante</p>
-                  <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
-                  <Button variant="outline" size="sm">
-                    Seleccionar Archivo
-                  </Button>
-                </div>
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="font-medium text-foreground mb-1">Acta Constitutiva</p>
+                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                <Button variant="outline" size="sm">
+                  Seleccionar Archivo
+                </Button>
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4 mt-6">
-                <p className="text-sm text-muted-foreground">
-                  <strong className="text-foreground">Nota:</strong> Todos los documentos serán revisados por nuestro
-                  equipo. El proceso de verificación puede tomar de 2 a 5 días hábiles.
-                </p>
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="font-medium text-foreground mb-1">Comprobante de Domicilio</p>
+                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                <Button variant="outline" size="sm">
+                  Seleccionar Archivo
+                </Button>
+              </div>
+
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="font-medium text-foreground mb-1">Licencia de Funcionamiento</p>
+                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                <Button variant="outline" size="sm">
+                  Seleccionar Archivo
+                </Button>
+              </div>
+
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="font-medium text-foreground mb-1">Identificación Oficial del Representante</p>
+                <p className="text-sm text-muted-foreground mb-3">PDF o imagen (máx. 5MB)</p>
+                <Button variant="outline" size="sm">
+                  Seleccionar Archivo
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-4 mt-6">
+              <p className="text-sm text-muted-foreground">
+                <strong className="text-foreground">Nota:</strong> Todos los documentos serán revisados por nuestro
+                equipo. El proceso de verificación puede tomar de 2 a 5 días hábiles.
+              </p>
               </div>
             </div>
 
@@ -951,14 +951,14 @@ export default function RegistroCentroPage() {
               </div>
             )}
             {!isSuccess && (
-              <div className="bg-muted/50 rounded-lg p-4 mb-6">
-                <p className="text-sm text-foreground mb-2">
-                  <strong>Número de Solicitud:</strong> #RC-2025-{Math.floor(Math.random() * 10000)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Recibirás un correo electrónico a <strong>{formData.email}</strong> con los siguientes pasos.
-                </p>
-              </div>
+            <div className="bg-muted/50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-foreground mb-2">
+                <strong>Número de Solicitud:</strong> #RC-2025-{Math.floor(Math.random() * 10000)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Recibirás un correo electrónico a <strong>{formData.email}</strong> con los siguientes pasos.
+              </p>
+            </div>
             )}
             <Button asChild className="w-full">
               <Link href="/">Volver al Inicio</Link>

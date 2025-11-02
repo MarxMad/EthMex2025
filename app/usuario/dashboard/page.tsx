@@ -2,11 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useDisconnect } from "wagmi"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Logo } from "@/components/logo"
 import { useUserDeliveries } from "@/lib/hooks/use-recycling-contract"
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
@@ -19,14 +17,11 @@ import {
   Calendar,
   DollarSign,
   Package,
-  User,
-  LogOut,
   Recycle,
 } from "lucide-react"
 
 export default function UsuarioDashboard() {
   const { deliveries, isLoading } = useUserDeliveries()
-  const { disconnect } = useDisconnect()
 
   // Mapeo de materiales para mostrar
   const materialNames: Record<string, string> = {
@@ -125,42 +120,6 @@ export default function UsuarioDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Logo size={40} />
-            <p className="text-xs text-muted-foreground">Usuario</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/usuario/pagos">
-                <DollarSign className="w-4 h-4 mr-2" />
-                Pagos
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/perfil">
-                <User className="w-5 h-5" />
-              </Link>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => {
-                disconnect()
-                setTimeout(() => {
-                  window.location.href = '/'
-                }, 100)
-              }}
-              title="Desconectar wallet y salir"
-            >
-              <LogOut className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

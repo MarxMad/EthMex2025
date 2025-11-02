@@ -163,7 +163,7 @@ export default function CentroDashboard() {
         pesoReal: `${delivery.amount.toString()} kg`,
         fecha: fecha,
         pago: pagoDisplay,
-        estado: "pagado",
+      estado: "pagado",
         deliveryId: id,
         delivery: delivery,
         userAddress: delivery.user,
@@ -177,7 +177,7 @@ export default function CentroDashboard() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Logo size={40} />
-            <p className="text-xs text-muted-foreground">Centro de Reciclaje</p>
+              <p className="text-xs text-muted-foreground">Centro de Reciclaje</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon">
@@ -194,7 +194,7 @@ export default function CentroDashboard() {
               }}
               title="Desconectar wallet y salir"
             >
-              <LogOut className="w-5 h-5" />
+                <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
@@ -309,41 +309,41 @@ export default function CentroDashboard() {
               </Card>
             ) : (
               solicitudesPendientes.map((solicitud) => (
-                <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                        <Package className="w-6 h-6 text-accent" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
-                        <p className="text-sm text-muted-foreground mb-2">{solicitud.cantidad}</p>
-                        <div className="flex items-center gap-4 text-sm">
+              <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-6 h-6 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
+                      <p className="text-sm text-muted-foreground mb-2">{solicitud.cantidad}</p>
+                      <div className="flex items-center gap-4 text-sm">
                           <Badge variant="secondary">Usuario</Badge>
                           <span className="text-muted-foreground">{solicitud.userAddress.slice(0, 6)}...{solicitud.userAddress.slice(-4)}</span>
-                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-accent">{solicitud.pago}</p>
-                      <p className="text-xs text-muted-foreground">Pago estimado</p>
-                    </div>
                   </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-accent">{solicitud.pago}</p>
+                    <p className="text-xs text-muted-foreground">Pago estimado</p>
+                  </div>
+                </div>
 
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                     <Clock className="w-4 h-4" />
-                    <span>{solicitud.fecha}</span>
-                  </div>
+                  <span>{solicitud.fecha}</span>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/centro/verificar/${solicitud.deliveryId.toString()}`}>Ver Detalles</Link>
-                    </Button>
-                    <Button size="sm" className="bg-accent text-accent-foreground" asChild>
+                  </Button>
+                  <Button size="sm" className="bg-accent text-accent-foreground" asChild>
                       <Link href={`/centro/verificar/${solicitud.deliveryId.toString()}`}>Aceptar y Verificar</Link>
-                    </Button>
-                  </div>
-                </Card>
+                  </Button>
+                </div>
+              </Card>
               ))
             )}
           </TabsContent>
@@ -356,38 +356,38 @@ export default function CentroDashboard() {
               </Card>
             ) : (
               enVerificacion.map((solicitud) => (
-                <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow border-primary/20">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Package className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
-                        <div className="flex items-center gap-3 text-sm mb-2">
+              <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow border-primary/20">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
+                      <div className="flex items-center gap-3 text-sm mb-2">
                           <span className="text-muted-foreground">Cantidad: {solicitud.cantidad}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
                           <Badge variant="secondary">Usuario</Badge>
                           <span className="text-muted-foreground">{solicitud.userAddress.slice(0, 6)}...{solicitud.userAddress.slice(-4)}</span>
-                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{solicitud.pagoCalculado}</p>
-                      <p className="text-xs text-muted-foreground">Pago calculado</p>
-                    </div>
                   </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">{solicitud.pagoCalculado}</p>
+                    <p className="text-xs text-muted-foreground">Pago calculado</p>
+                  </div>
+                </div>
 
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                     <Clock className="w-4 h-4" />
-                    <span>{solicitud.fecha}</span>
-                  </div>
+                  <span>{solicitud.fecha}</span>
+                </div>
 
-                  <Button size="sm" className="w-full" asChild>
+                <Button size="sm" className="w-full" asChild>
                     <Link href={`/centro/verificar/${solicitud.deliveryId.toString()}`}>Continuar Verificación</Link>
-                  </Button>
-                </Card>
+                </Button>
+              </Card>
               ))
             )}
           </TabsContent>
@@ -400,26 +400,26 @@ export default function CentroDashboard() {
               </Card>
             ) : (
               completadas.map((solicitud) => (
-                <Card key={solicitud.id} className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <CheckCircle2 className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
-                      <div>
-                        <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
-                        <p className="text-sm text-muted-foreground mb-2">{solicitud.pesoReal} procesados</p>
-                        <div className="flex items-center gap-4 text-sm">
+              <Card key={solicitud.id} className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <CheckCircle2 className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
+                      <p className="text-sm text-muted-foreground mb-2">{solicitud.pesoReal} procesados</p>
+                      <div className="flex items-center gap-4 text-sm">
                           <Badge variant="secondary">Usuario</Badge>
                           <span className="text-muted-foreground">{solicitud.userAddress.slice(0, 6)}...{solicitud.userAddress.slice(-4)}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">{solicitud.fecha}</p>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-primary">{solicitud.pago}</p>
-                      <Badge className="mt-2 bg-primary text-primary-foreground">Pagado</Badge>
+                      <p className="text-xs text-muted-foreground mt-2">{solicitud.fecha}</p>
                     </div>
                   </div>
-                </Card>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-primary">{solicitud.pago}</p>
+                    <Badge className="mt-2 bg-primary text-primary-foreground">Pagado</Badge>
+                  </div>
+                </div>
+              </Card>
               ))
             )}
           </TabsContent>

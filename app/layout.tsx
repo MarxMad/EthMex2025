@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { WagmiProvider } from "@/components/providers/wagmi-provider"
+import { Navbar } from "@/components/layout/navbar"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -59,6 +60,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={`font-sans antialiased`}>
         <WagmiProvider>
+          <Navbar />
           {children}
         </WagmiProvider>
         <Analytics />

@@ -524,6 +524,7 @@ export function useRecyclingCenters() {
   const [centers, setCenters] = useState<Array<{ address: `0x${string}`, name: string }>>([])
   const [isLoading, setIsLoading] = useState(true)
   const publicClient = usePublicClient()
+  const { chainId } = useAccount()
 
   // Función para actualizar la lista de centros
   const updateCenters = (centerAddress: `0x${string}`, add: boolean) => {
@@ -542,7 +543,7 @@ export function useRecyclingCenters() {
     }
   }
 
-  // Cargar centros desde localStorage y luego intentar obtener eventos recientes
+  // Cargar centros desde blockchain (no usar localStorage porque puede ser de otra red)
   useEffect(() => {
     // No ejecutar en servidor
     if (typeof window === 'undefined') {
@@ -550,22 +551,13 @@ export function useRecyclingCenters() {
       return
     }
 
-    const loadCenters = async () => {
-      // Primero cargar desde localStorage
-      const stored = localStorage.getItem('recyclingCenters')
-      let storedCenters: Array<{ address: string }> = []
-      
-      if (stored) {
-        try {
-          storedCenters = JSON.parse(stored)
-          setCenters(storedCenters as Array<{ address: `0x${string}`, name: string }>)
-        } catch (e) {
-          console.error('Error parsing stored centers:', e)
-        }
-      }
+    // Resetear centros cuando cambia la red o wallet
+    setCenters([])
+    setIsLoading(true)
 
-      // Luego intentar obtener eventos recientes (últimos 1000 bloques)
-      // Solo si hay publicClient disponible
+    const loadCenters = async () => {
+      // No cargar desde localStorage - siempre obtener desde blockchain para evitar centros de otra red
+      // Solo intentar obtener eventos recientes si hay publicClient disponible
       if (!publicClient) {
         setIsLoading(false)
         return
@@ -603,15 +595,8 @@ export function useRecyclingCenters() {
           toBlock: 'latest',
         }).catch(() => []) // Si falla, usar array vacío
 
-        // Procesar eventos: combinar con localStorage
+        // Procesar eventos: solo usar eventos recientes (sin localStorage)
         const centersSet = new Set<string>()
-        
-        // Agregar centros que ya estaban en localStorage
-        storedCenters.forEach((c: { address: string }) => {
-          if (c.address) {
-            centersSet.add(c.address.toLowerCase())
-          }
-        })
 
         // Agregar todos los centros de eventos recientes
         addedLogs.forEach((log) => {
@@ -644,7 +629,7 @@ export function useRecyclingCenters() {
     }
 
     loadCenters()
-  }, [publicClient])
+  }, [publicClient, chainId])
 
   // Escuchar eventos de centros agregados en tiempo real
   useWatchContractEvent({
@@ -676,13 +661,7 @@ export function useRecyclingCenters() {
     },
   })
 
-  // Guardar en localStorage cuando cambien los centros
-  useEffect(() => {
-    // Solo guardar en el cliente
-    if (typeof window !== 'undefined' && centers.length > 0) {
-      localStorage.setItem('recyclingCenters', JSON.stringify(centers))
-    }
-  }, [centers])
+  // Ya no guardamos en localStorage para evitar centros de otras redes
 
   return {
     centers,

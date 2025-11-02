@@ -31,14 +31,14 @@ export default function LoginPage() {
       // Redirigir según el rol seleccionado
       switch (selectedRole) {
         case 'recolector':
-          router.push("/recolector/dashboard")
+        router.push("/recolector/dashboard")
           break
         case 'centro':
-          router.push("/centro/dashboard")
+        router.push("/centro/dashboard")
           break
         case 'usuario':
         default:
-          router.push("/usuario/dashboard")
+        router.push("/usuario/dashboard")
           break
       }
       setLoading(false)
