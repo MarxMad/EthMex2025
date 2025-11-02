@@ -71,6 +71,7 @@ export function useValidateDelivery() {
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'validateDelivery',
         args: [deliveryId],
+        value: 0n, // No enviar ETH - solo validar entrega
       })
     } catch (err) {
       console.error('Error validating delivery:', err)
@@ -101,6 +102,7 @@ export function useRejectDelivery() {
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'rejectDelivery',
         args: [deliveryId, reason],
+        value: 0n, // No enviar ETH - solo rechazar entrega
       })
     } catch (err) {
       console.error('Error rejecting delivery:', err)
@@ -240,6 +242,7 @@ export function useAddRecyclingCenter() {
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'addRecyclingCenter',
         args: [centerAddress],
+        value: 0n, // Explícitamente NO enviar ETH - solo llamar a la función
       })
     } catch (err) {
       console.error('Error adding recycling center:', err)
