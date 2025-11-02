@@ -371,12 +371,25 @@ export function useMaterialPrice(
       : undefined,
     query: {
       enabled: materialType !== undefined && centerAddress !== undefined,
-      // Refetch cada 5 segundos si no hay precio (puede que se haya configurado recientemente)
+      // Refetch cada 30 segundos si no hay precio (reducido para evitar rate limiting)
+      // Solo refetch si no hay error y no está cargando
       refetchInterval: (query) => {
         const price = query.state.data as bigint | undefined
-        // Si no hay precio y tenemos los parámetros, refetch cada 5 segundos
-        return (!price || price === 0n) && materialType !== undefined && centerAddress !== undefined ? 5000 : false
+        const hasError = query.state.error !== null
+        const isLoading = query.state.isLoading
+        
+        // Solo refetch si no hay precio, no hay error, y no está cargando
+        // Reducido a 30 segundos para evitar rate limiting del RPC
+        if (!price || price === 0n) {
+          if (!hasError && !isLoading && materialType !== undefined && centerAddress !== undefined) {
+            return 30000 // 30 segundos en lugar de 5
+          }
+        }
+        return false
       },
+      // Reintentar si falla, pero con menos frecuencia
+      retry: 2, // Solo reintentar 2 veces
+      retryDelay: 5000, // Esperar 5 segundos entre reintentos
     },
   })
 
