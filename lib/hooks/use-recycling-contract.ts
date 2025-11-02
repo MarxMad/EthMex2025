@@ -249,18 +249,38 @@ export function useAddRecyclingCenter() {
         throw new Error('Dirección inválida')
       }
 
+      // Normalizar dirección a lowercase y checksum
+      const normalizedAddress = centerAddress.toLowerCase() as `0x${string}`
+
+      console.log('🔍 Preparando transacción addRecyclingCenter:', {
+        contract: RECYCLING_CONTRACT_ADDRESS,
+        centerAddress: normalizedAddress,
+        functionName: 'addRecyclingCenter',
+      })
+
       // Llamada simple: el contrato solo recibe la dirección del centro
-      // addRecyclingCenter(address _center) es nonpayable - NO envía ETH
-      await writeContract({
+      // addRecyclingCenter(address _center) es nonpayable - DEBE ser value: 0n explícitamente
+      const result = await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'addRecyclingCenter',
-        args: [centerAddress.toLowerCase() as `0x${string}`], // Normalizar a lowercase
-        // NO incluir 'value' - dejar que wagmi lo maneje (será 0 por defecto)
-        // NO especificar 'gas' - dejar que wagmi estime automáticamente
-      })
-    } catch (err) {
-      console.error('Error adding recycling center:', err)
+        args: [normalizedAddress],
+        value: 0n, // EXPLÍCITAMENTE 0 - función nonpayable no puede recibir ETH
+      } as const)
+
+      console.log('✅ Transacción enviada:', result)
+      return result
+    } catch (err: any) {
+      console.error('❌ Error adding recycling center:', err)
+      
+      // Si el error tiene información sobre la transacción, loguearla
+      if (err?.cause) {
+        console.error('Error cause:', err.cause)
+      }
+      if (err?.data) {
+        console.error('Error data:', err.data)
+      }
+      
       throw err
     }
   }
