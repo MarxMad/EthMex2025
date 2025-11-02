@@ -37,9 +37,12 @@ export default function SolicitarRecoleccionPage() {
     notas: "",
   })
 
+  // Obtener precio del material para el centro seleccionado
+  // Nota: V2 usa precios globales. Cuando V3 esté desplegado, usará precios por centro
   const { price: materialPrice, isLoading: loadingPrice } = useMaterialPrice(
     formData.tipoMaterial || undefined,
-    paymentToken
+    paymentToken,
+    selectedCenter ? (selectedCenter as `0x${string}`) : undefined
   )
   const { isRecyclingCenter, isLoading: checkingCenter } = useIsRecyclingCenter(
     selectedCenter ? (selectedCenter as `0x${string}`) : undefined

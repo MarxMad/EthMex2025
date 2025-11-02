@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useAccount } from "wagmi"
-import { useIsOwner, useAddRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
+import { useIsOwner, useAddRecyclingCenter, useSetCenterMaterialPrice } from "@/lib/hooks/use-recycling-contract"
+import { PaymentToken } from "@/lib/contracts"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import {
@@ -32,7 +33,11 @@ export default function RegistroCentroPage() {
   const { address, isConnected } = useAccount()
   const { isOwner, isLoading: checkingOwner } = useIsOwner()
   const { addRecyclingCenter, hash, isPending, isSuccess, error } = useAddRecyclingCenter()
+  const { setCenterMaterialPrice, hash: priceHash, isPending: isSettingPrice, isSuccess: priceSetSuccess } = useSetCenterMaterialPrice()
   const [paso, setPaso] = useState(1)
+  const [configuringPrices, setConfiguringPrices] = useState(false)
+  const [priceConfigStatus, setPriceConfigStatus] = useState<Record<string, boolean>>({})
+  const [priceInputs, setPriceInputs] = useState<Record<string, { eth: string, usdc: string, mxnb: string }>>({})
   const [centerWallet, setCenterWallet] = useState("")
   const [errorMessage, setErrorMessage] = useState<string>("")
   const [formData, setFormData] = useState({
@@ -77,12 +82,64 @@ export default function RegistroCentroPage() {
     }))
   }
 
-  // Efecto para manejar éxito de la transacción
+  // Mapeo de materiales del formulario a nombres del contrato
+  const materialMapping: Record<string, string> = {
+    "Plástico PET": "plastico",
+    "Cartón": "carton",
+    "Vidrio": "vidrio",
+    "Aluminio": "aluminio",
+    "Papel": "papel",
+    "Electrónicos": "electronicos",
+    "Metales": "metales",
+    "Textiles": "textiles",
+  }
+
+  // Efecto para manejar éxito de la transacción de agregar centro
   useEffect(() => {
-    if (isSuccess) {
+    if (isSuccess && !configuringPrices) {
+      // Ir al paso de configuración de precios
       setPaso(4)
+      setConfiguringPrices(true)
     }
-  }, [isSuccess])
+  }, [isSuccess, configuringPrices])
+
+  // Función para configurar precio de un material
+  const handleSetPrice = async (material: string, token: PaymentToken, price: string) => {
+    if (!price || parseFloat(price) <= 0) {
+      setErrorMessage(`Debes ingresar un precio válido para ${material}`)
+      return
+    }
+
+    try {
+      setErrorMessage("")
+      const materialContractName = materialMapping[material] || material.toLowerCase()
+      await setCenterMaterialPrice(
+        centerWallet as `0x${string}`,
+        materialContractName,
+        token,
+        price
+      )
+      
+      // Esperar a que la transacción sea exitosa
+      // El estado priceSetSuccess se actualizará automáticamente
+    } catch (err: any) {
+      console.error("Error setting price:", err)
+      if (err?.message?.includes("user rejected") || err?.message?.includes("User denied")) {
+        setErrorMessage("Transacción cancelada. No se configuró el precio.")
+      } else {
+        setErrorMessage(err?.message || "Error al configurar el precio.")
+      }
+    }
+  }
+
+  // Efecto para actualizar estado cuando un precio se configura exitosamente
+  useEffect(() => {
+    if (priceSetSuccess && priceHash) {
+      // Marcar como configurado (simplificado - en producción podrías rastrear cada precio individualmente)
+      const key = `${priceHash}`
+      setPriceConfigStatus(prev => ({ ...prev, [key]: true }))
+    }
+  }, [priceSetSuccess, priceHash])
 
   const handleSubmit = async () => {
     if (!isConnected) {
@@ -655,19 +712,168 @@ export default function RegistroCentroPage() {
           </Card>
         )}
 
-        {/* Paso 4: Confirmación */}
-        {paso === 4 && (
+        {/* Paso 4: Configuración de Precios */}
+        {paso === 4 && isSuccess && (
+          <Card className="p-6">
+            <h2 className="text-xl font-bold text-foreground mb-4">Configurar Precios del Centro</h2>
+            <p className="text-muted-foreground mb-6">
+              Ahora configura los precios por kilogramo para cada material que acepta tu centro. 
+              Puedes configurar precios para diferentes métodos de pago (ETH, USDC, MXNB).
+            </p>
+
+            {errorMessage && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-6">
+              {formData.materialesAceptados.length > 0 ? (
+                formData.materialesAceptados.map((material) => (
+                  <Card key={material} className="p-4 border">
+                    <h3 className="font-semibold text-foreground mb-4">{material}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Precio ETH */}
+                      <div>
+                        <Label className="text-sm mb-2 block">Precio en ETH (por kg)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            step="0.000001"
+                            placeholder="0.002"
+                            value={priceInputs[material]?.eth || ""}
+                            onChange={(e) => setPriceInputs(prev => ({
+                              ...prev,
+                              [material]: { ...prev[material], eth: e.target.value }
+                            }))}
+                            className="flex-1"
+                            disabled={isSettingPrice}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const price = priceInputs[material]?.eth
+                              if (price) {
+                                handleSetPrice(material, PaymentToken.ETH, price)
+                              }
+                            }}
+                            disabled={isSettingPrice || !priceInputs[material]?.eth}
+                          >
+                            Configurar
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Precio USDC */}
+                      <div>
+                        <Label className="text-sm mb-2 block">Precio en USDC (por kg)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="2.00"
+                            value={priceInputs[material]?.usdc || ""}
+                            onChange={(e) => setPriceInputs(prev => ({
+                              ...prev,
+                              [material]: { ...prev[material], usdc: e.target.value }
+                            }))}
+                            className="flex-1"
+                            disabled={isSettingPrice}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const price = priceInputs[material]?.usdc
+                              if (price) {
+                                handleSetPrice(material, PaymentToken.USDC, price)
+                              }
+                            }}
+                            disabled={isSettingPrice || !priceInputs[material]?.usdc}
+                          >
+                            Configurar
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Precio MXNB */}
+                      <div>
+                        <Label className="text-sm mb-2 block">Precio en MXNB (por kg)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            step="0.000001"
+                            placeholder="0.002"
+                            value={priceInputs[material]?.mxnb || ""}
+                            onChange={(e) => setPriceInputs(prev => ({
+                              ...prev,
+                              [material]: { ...prev[material], mxnb: e.target.value }
+                            }))}
+                            className="flex-1"
+                            disabled={isSettingPrice}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const price = priceInputs[material]?.mxnb
+                              if (price) {
+                                handleSetPrice(material, PaymentToken.MXNB, price)
+                              }
+                            }}
+                            disabled={isSettingPrice || !priceInputs[material]?.mxnb}
+                          >
+                            Configurar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No has seleccionado materiales aceptados. Puedes continuar y configurar los precios más tarde.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            {isSettingPrice && (
+              <Alert className="mt-4">
+                <AlertDescription>
+                  Configurando precio en el contrato... Por favor espera.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <Button 
+                variant="outline" 
+                onClick={() => setPaso(5)} 
+                className="flex-1"
+                disabled={isSettingPrice}
+              >
+                {formData.materialesAceptados.length === 0 ? "Finalizar" : "Continuar"}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Paso 5: Confirmación Final */}
+        {paso === 5 && (
           <Card className="p-8 text-center">
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-10 h-10 text-primary" />
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-3">
-              {isSuccess ? "¡Centro Agregado al Contrato!" : "Solicitud Enviada"}
+              ¡Centro Registrado Exitosamente!
             </h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              {isSuccess 
-                ? `El centro de reciclaje con dirección ${centerWallet.slice(0, 8)}...${centerWallet.slice(-6)} ha sido autorizado exitosamente en el contrato inteligente y ya puede recibir entregas.`
-                : "Tu solicitud para registrar el centro de reciclaje ha sido enviada exitosamente. Nuestro equipo revisará la información y documentación en los próximos 2-5 días hábiles."}
+              El centro de reciclaje con dirección <strong>{centerWallet.slice(0, 8)}...{centerWallet.slice(-6)}</strong> ha sido autorizado exitosamente en el contrato inteligente.
+              {formData.materialesAceptados.length > 0 && " Los precios han sido configurados y el centro ya puede recibir entregas."}
             </p>
             {isSuccess && (
               <div className="space-y-4 mb-6">

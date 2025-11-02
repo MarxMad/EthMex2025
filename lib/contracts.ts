@@ -1,15 +1,15 @@
 // Archivo para definir las direcciones y ABI de los contratos
 
-// Direcciones del contrato RecyclingEscrowV2 por red
+// Direcciones del contrato RecyclingEscrowV3 por red
 export const RECYCLING_CONTRACT_ADDRESSES = {
-  arbitrumSepolia: '0x83501eae542748590639649f2e951b653c509b1b' as const,
+  arbitrumSepolia: '0x44ef6c17d14e35660dae0769ab42f6295f09fb48' as const, // V3 con precios por centro
   scrollSepolia: '', // Se actualizará cuando se despliegue en Scroll
 } as const
 
 // Dirección del contrato activo (usar según la red configurada)
 export const RECYCLING_CONTRACT_ADDRESS = RECYCLING_CONTRACT_ADDRESSES.arbitrumSepolia
 
-// ABI del contrato RecyclingEscrowV2
+// ABI del contrato RecyclingEscrowV3
 export const RECYCLING_CONTRACT_ABI = [
   {
     inputs: [
@@ -42,7 +42,7 @@ export const RECYCLING_CONTRACT_ABI = [
         type: 'uint256',
       },
       {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: '_paymentToken',
         type: 'uint8',
       },
@@ -61,29 +61,6 @@ export const RECYCLING_CONTRACT_ABI = [
       },
     ],
     stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
-        name: '_token',
-        type: 'uint8',
-      },
-      {
-        internalType: 'address',
-        name: '_to',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: '_amount',
-        type: 'uint256',
-      },
-    ],
-    name: 'emergencyWithdraw',
-    outputs: [],
-    stateMutability: 'nonpayable',
     type: 'function',
   },
   {
@@ -150,25 +127,30 @@ export const RECYCLING_CONTRACT_ABI = [
     inputs: [
       {
         indexed: true,
+        internalType: 'address',
+        name: 'center',
+        type: 'address',
+      },
+      {
+        indexed: true,
+        internalType: 'string',
+        name: 'materialType',
+        type: 'string',
+      },
+      {
+        indexed: true,
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
+        name: 'token',
+        type: 'uint8',
+      },
+      {
+        indexed: false,
         internalType: 'uint256',
-        name: 'rate',
+        name: 'price',
         type: 'uint256',
       },
     ],
-    name: 'CommissionRateSet',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'wallet',
-        type: 'address',
-      },
-    ],
-    name: 'CommissionWalletSet',
+    name: 'CenterMaterialPriceSet',
     type: 'event',
   },
   {
@@ -212,7 +194,7 @@ export const RECYCLING_CONTRACT_ABI = [
       },
       {
         indexed: false,
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: 'paymentToken',
         type: 'uint8',
       },
@@ -268,7 +250,7 @@ export const RECYCLING_CONTRACT_ABI = [
       },
       {
         indexed: false,
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: 'paymentToken',
         type: 'uint8',
       },
@@ -299,7 +281,7 @@ export const RECYCLING_CONTRACT_ABI = [
       },
       {
         indexed: false,
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: 'paymentToken',
         type: 'uint8',
       },
@@ -318,7 +300,7 @@ export const RECYCLING_CONTRACT_ABI = [
       },
       {
         indexed: true,
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: 'token',
         type: 'uint8',
       },
@@ -329,7 +311,7 @@ export const RECYCLING_CONTRACT_ABI = [
         type: 'uint256',
       },
     ],
-    name: 'MaterialPriceSet',
+    name: 'GlobalMaterialPriceSet',
     type: 'event',
   },
   {
@@ -418,25 +400,27 @@ export const RECYCLING_CONTRACT_ABI = [
   {
     inputs: [
       {
+        internalType: 'address',
+        name: '_center',
+        type: 'address',
+      },
+      {
+        internalType: 'string',
+        name: '_materialType',
+        type: 'string',
+      },
+      {
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
+        name: '_token',
+        type: 'uint8',
+      },
+      {
         internalType: 'uint256',
-        name: '_rate',
+        name: '_pricePerKg',
         type: 'uint256',
       },
     ],
-    name: 'setCommissionRate',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: '_wallet',
-        type: 'address',
-      },
-    ],
-    name: 'setCommissionWallet',
+    name: 'setCenterMaterialPrice',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -449,7 +433,7 @@ export const RECYCLING_CONTRACT_ABI = [
         type: 'string',
       },
       {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: '_token',
         type: 'uint8',
       },
@@ -459,70 +443,10 @@ export const RECYCLING_CONTRACT_ABI = [
         type: 'uint256',
       },
     ],
-    name: 'setMaterialPrice',
+    name: 'setGlobalMaterialPrice',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'string[]',
-        name: '_materialTypes',
-        type: 'string[]',
-      },
-      {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken[]',
-        name: '_tokens',
-        type: 'uint8[]',
-      },
-      {
-        internalType: 'uint256[]',
-        name: '_prices',
-        type: 'uint256[]',
-      },
-    ],
-    name: 'setMaterialPrices',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
-        name: '_token',
-        type: 'uint8',
-      },
-      {
-        internalType: 'address',
-        name: '_tokenAddress',
-        type: 'address',
-      },
-    ],
-    name: 'setTokenAddress',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
-        name: 'token',
-        type: 'uint8',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'tokenAddress',
-        type: 'address',
-      },
-    ],
-    name: 'TokenAddressSet',
-    type: 'event',
   },
   {
     inputs: [
@@ -553,23 +477,6 @@ export const RECYCLING_CONTRACT_ABI = [
   {
     inputs: [
       {
-        internalType: 'uint256',
-        name: '_deliveryId',
-        type: 'uint256',
-      },
-    ],
-    name: 'withdrawFunds',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    stateMutability: 'payable',
-    type: 'receive',
-  },
-  {
-    inputs: [
-      {
         internalType: 'address',
         name: '',
         type: 'address',
@@ -581,6 +488,35 @@ export const RECYCLING_CONTRACT_ABI = [
       },
     ],
     name: 'centerDeliveries',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+      {
+        internalType: 'string',
+        name: '',
+        type: 'string',
+      },
+      {
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
+        name: '',
+        type: 'uint8',
+      },
+    ],
+    name: 'centerMaterialPrices',
     outputs: [
       {
         internalType: 'uint256',
@@ -653,12 +589,12 @@ export const RECYCLING_CONTRACT_ABI = [
         type: 'uint256',
       },
       {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: 'paymentToken',
         type: 'uint8',
       },
       {
-        internalType: 'enum RecyclingEscrowV2.DeliveryStatus',
+        internalType: 'enum RecyclingEscrowV3.DeliveryStatus',
         name: 'status',
         type: 'uint8',
       },
@@ -706,135 +642,13 @@ export const RECYCLING_CONTRACT_ABI = [
         name: '_center',
         type: 'address',
       },
-    ],
-    name: 'getCenterDeliveries',
-    outputs: [
-      {
-        internalType: 'uint256[]',
-        name: '',
-        type: 'uint256[]',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'getContractBalanceETH',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
-        name: '_token',
-        type: 'uint8',
-      },
-    ],
-    name: 'getContractBalanceToken',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: '_deliveryId',
-        type: 'uint256',
-      },
-    ],
-    name: 'getDelivery',
-    outputs: [
-      {
-        components: [
-          {
-            internalType: 'address',
-            name: 'user',
-            type: 'address',
-          },
-          {
-            internalType: 'address',
-            name: 'recyclingCenter',
-            type: 'address',
-          },
-          {
-            internalType: 'string',
-            name: 'materialType',
-            type: 'string',
-          },
-          {
-            internalType: 'uint256',
-            name: 'amount',
-            type: 'uint256',
-          },
-          {
-            internalType: 'uint256',
-            name: 'paymentAmount',
-            type: 'uint256',
-          },
-          {
-            internalType: 'enum RecyclingEscrowV2.PaymentToken',
-            name: 'paymentToken',
-            type: 'uint8',
-          },
-          {
-            internalType: 'enum RecyclingEscrowV2.DeliveryStatus',
-            name: 'status',
-            type: 'uint8',
-          },
-          {
-            internalType: 'uint256',
-            name: 'createdAt',
-            type: 'uint256',
-          },
-          {
-            internalType: 'uint256',
-            name: 'validatedAt',
-            type: 'uint256',
-          },
-          {
-            internalType: 'string',
-            name: 'rejectionReason',
-            type: 'string',
-          },
-          {
-            internalType: 'string',
-            name: 'metadata',
-            type: 'string',
-          },
-        ],
-        internalType: 'struct RecyclingEscrowV2.Delivery',
-        name: '',
-        type: 'tuple',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
       {
         internalType: 'string',
         name: '_materialType',
         type: 'string',
       },
       {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: '_token',
         type: 'uint8',
       },
@@ -853,55 +667,17 @@ export const RECYCLING_CONTRACT_ABI = [
   {
     inputs: [
       {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
-        name: '_token',
-        type: 'uint8',
-      },
-    ],
-    name: 'getTotalEscrowedByToken',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: '_user',
-        type: 'address',
-      },
-    ],
-    name: 'getUserDeliveries',
-    outputs: [
-      {
-        internalType: 'uint256[]',
-        name: '',
-        type: 'uint256[]',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
         internalType: 'string',
         name: '',
         type: 'string',
       },
       {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: '',
         type: 'uint8',
       },
     ],
-    name: 'materialPrices',
+    name: 'globalMaterialPrices',
     outputs: [
       {
         internalType: 'uint256',
@@ -973,7 +749,7 @@ export const RECYCLING_CONTRACT_ABI = [
   {
     inputs: [
       {
-        internalType: 'enum RecyclingEscrowV2.PaymentToken',
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
         name: '',
         type: 'uint8',
       },
@@ -1043,17 +819,17 @@ export enum DeliveryStatus {
   Completed = 3,
 }
 
-// Tipo para la estructura Delivery (actualizado con V2)
+// Tipo para la estructura Delivery (actualizado con V3)
 export interface Delivery {
   user: `0x${string}`
   recyclingCenter: `0x${string}`
   materialType: string
   amount: bigint
   paymentAmount: bigint
-  paymentToken: PaymentToken // Nuevo campo
+  paymentToken: PaymentToken
   status: DeliveryStatus
   createdAt: bigint
   validatedAt: bigint
   rejectionReason: string
-  metadata: string // Nuevo campo
+  metadata: string
 }

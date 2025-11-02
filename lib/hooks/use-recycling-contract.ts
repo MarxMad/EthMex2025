@@ -394,20 +394,22 @@ export function useAddRecyclingCenter() {
   }
 }
 
-// Hook para obtener precio de un material para un token específico
-// NOTA: V2 usa precios globales. V3 soportará precios por centro
+// Hook para obtener precio de un material para un centro específico (V3)
+// Retorna el precio del centro si existe, sino el precio global
 export function useMaterialPrice(
   materialType: string | undefined, 
   token: PaymentToken,
-  centerAddress?: `0x${string}` // Opcional: para V3 con precios por centro
+  centerAddress: `0x${string}` | undefined // Requerido para V3
 ) {
   const { data, isLoading, error } = useReadContract({
     address: RECYCLING_CONTRACT_ADDRESS,
     abi: RECYCLING_CONTRACT_ABI,
     functionName: 'getMaterialPrice',
-    args: materialType !== undefined ? [materialType, token] : undefined,
+    args: materialType !== undefined && centerAddress !== undefined 
+      ? [centerAddress, materialType, token] 
+      : undefined,
     query: {
-      enabled: materialType !== undefined,
+      enabled: materialType !== undefined && centerAddress !== undefined,
     },
   })
 
@@ -418,16 +420,13 @@ export function useMaterialPrice(
   }
 }
 
-// Hook para obtener precio específico de un centro (para V3)
-// Por ahora usa el precio global, pero preparado para V3
+// Hook para obtener precio específico de un centro (alias para claridad)
 export function useCenterMaterialPrice(
   centerAddress: `0x${string}` | undefined,
   materialType: string | undefined,
   token: PaymentToken
 ) {
-  // Por ahora retornamos el precio global ya que V2 no soporta precios por centro
-  // Cuando V3 esté desplegado, esto llamará a getMaterialPrice(center, material, token)
-  return useMaterialPrice(materialType, token)
+  return useMaterialPrice(materialType, token, centerAddress)
 }
 
 // Hook para configurar precio de un material (solo owner)
@@ -482,6 +481,106 @@ export function useSetMaterialPrice() {
 
   return {
     setMaterialPrice,
+    hash,
+    isPending: isPending || isConfirming,
+    isSuccess,
+    error,
+  }
+}
+
+// Hook para configurar precio de un material para un centro específico (V3)
+// Puede ser llamado por el owner o por el propio centro
+export function useSetCenterMaterialPrice() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
+
+  const setCenterMaterialPrice = async (
+    centerAddress: `0x${string}`,
+    materialType: string,
+    token: PaymentToken,
+    pricePerKg: string, // String porque puede ser decimal
+    isETH: boolean = token === PaymentToken.ETH
+  ) => {
+    try {
+      // Convertir el precio a wei si es ETH, o a unidades del token si es ERC20
+      const priceInWei = isETH
+        ? parseEther(pricePerKg)
+        : token === PaymentToken.USDC
+        ? parseUnits(pricePerKg, 6) // USDC tiene 6 decimals
+        : parseEther(pricePerKg) // MXNB probablemente tiene 18 decimals
+
+      console.log('🔧 Configurando precio del centro:', {
+        centerAddress,
+        materialType,
+        token,
+        pricePerKg,
+        priceInWei: priceInWei.toString(),
+      })
+
+      await writeContract({
+        address: RECYCLING_CONTRACT_ADDRESS,
+        abi: RECYCLING_CONTRACT_ABI,
+        functionName: 'setCenterMaterialPrice',
+        args: [centerAddress, materialType, token, priceInWei],
+      })
+    } catch (err: any) {
+      console.error('Error setting center material price:', err)
+      throw err
+    }
+  }
+
+  return {
+    setCenterMaterialPrice,
+    hash,
+    isPending: isPending || isConfirming,
+    isSuccess,
+    error,
+  }
+}
+
+// Hook para configurar precio global de un material (solo owner)
+export function useSetGlobalMaterialPrice() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
+
+  const setGlobalMaterialPrice = async (
+    materialType: string,
+    token: PaymentToken,
+    pricePerKg: string,
+    isETH: boolean = token === PaymentToken.ETH
+  ) => {
+    try {
+      const priceInWei = isETH
+        ? parseEther(pricePerKg)
+        : token === PaymentToken.USDC
+        ? parseUnits(pricePerKg, 6)
+        : parseEther(pricePerKg)
+
+      console.log('🔧 Configurando precio global:', {
+        materialType,
+        token,
+        pricePerKg,
+        priceInWei: priceInWei.toString(),
+      })
+
+      await writeContract({
+        address: RECYCLING_CONTRACT_ADDRESS,
+        abi: RECYCLING_CONTRACT_ABI,
+        functionName: 'setGlobalMaterialPrice',
+        args: [materialType, token, priceInWei],
+      })
+    } catch (err: any) {
+      console.error('Error setting global material price:', err)
+      throw err
+    }
+  }
+
+  return {
+    setGlobalMaterialPrice,
     hash,
     isPending: isPending || isConfirming,
     isSuccess,
