@@ -1,7 +1,7 @@
 'use client'
 
-import { useWriteContract, useReadContract, useWaitForTransactionReceipt, useAccount, useWatchContractEvent, usePublicClient } from 'wagmi'
-import { parseEther, formatEther, parseUnits } from 'viem'
+import { useWriteContract, usePrepareWriteContract, useReadContract, useWaitForTransactionReceipt, useAccount, useWatchContractEvent, usePublicClient } from 'wagmi'
+import { parseEther, formatEther, parseUnits, encodeFunctionData, type Address } from 'viem'
 import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, type Delivery, DeliveryStatus, PaymentToken } from '@/lib/contracts'
 import { useState, useEffect } from 'react'
 
@@ -237,6 +237,8 @@ export function useIsOwner() {
 
 // Hook para agregar un centro de reciclaje (solo owner)
 export function useAddRecyclingCenter() {
+  const { address } = useAccount()
+  const publicClient = usePublicClient()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
@@ -249,8 +251,12 @@ export function useAddRecyclingCenter() {
         throw new Error('Dirección inválida')
       }
 
-      // Normalizar dirección a lowercase y checksum
-      const normalizedAddress = centerAddress.toLowerCase() as `0x${string}`
+      if (!address || !publicClient) {
+        throw new Error('Wallet no conectada')
+      }
+
+      // Normalizar dirección
+      const normalizedAddress = centerAddress.toLowerCase() as Address
 
       console.log('🔍 Preparando transacción addRecyclingCenter:', {
         contract: RECYCLING_CONTRACT_ADDRESS,
@@ -258,22 +264,42 @@ export function useAddRecyclingCenter() {
         functionName: 'addRecyclingCenter',
       })
 
-      // Llamada simple: el contrato solo recibe la dirección del centro
-      // addRecyclingCenter(address _center) es nonpayable - NO debe enviar ETH
-      // NO especificar gas - dejar que wagmi estime automáticamente
-      // NO usar 'as const' que podría causar problemas de tipos
+      // Codificar la función manualmente para verificar que está correcta
+      const encodedData = encodeFunctionData({
+        abi: RECYCLING_CONTRACT_ABI,
+        functionName: 'addRecyclingCenter',
+        args: [normalizedAddress],
+      })
+
+      console.log('📦 Datos codificados:', encodedData)
+
+      // Estimar gas manualmente para ver qué está pasando
+      try {
+        const gasEstimate = await publicClient.estimateGas({
+          account: address,
+          to: RECYCLING_CONTRACT_ADDRESS,
+          data: encodedData,
+          value: 0n,
+        })
+        console.log('⛽ Gas estimado:', gasEstimate.toString())
+      } catch (gasErr: any) {
+        console.error('⚠️ Error estimando gas:', gasErr)
+      }
+
+      // Enviar transacción con todos los parámetros explícitos
       const result = await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'addRecyclingCenter',
         args: [normalizedAddress],
-        // NO incluir 'value' - wagmi maneja funciones nonpayable correctamente sin value
+        value: 0n, // EXPLÍCITAMENTE 0 - función nonpayable
       })
 
-      console.log('✅ Transacción enviada:', result)
+      console.log('✅ Transacción enviada, hash:', result)
       return result
     } catch (err: any) {
       console.error('❌ Error adding recycling center:', err)
+      console.error('Error completo:', JSON.stringify(err, null, 2))
       
       // Si el error tiene información sobre la transacción, loguearla
       if (err?.cause) {
@@ -281,6 +307,9 @@ export function useAddRecyclingCenter() {
       }
       if (err?.data) {
         console.error('Error data:', err.data)
+      }
+      if (err?.shortMessage) {
+        console.error('Short message:', err.shortMessage)
       }
       
       throw err
