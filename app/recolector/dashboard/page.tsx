@@ -13,6 +13,7 @@ import { useAccount, useDisconnect } from "wagmi"
 import { PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
 import { ActivateCollectorRole } from "@/components/activate-collector-role"
+import { RoleGuard } from "@/components/role-guard"
 import {
   MapPin,
   Clock,
@@ -137,7 +138,8 @@ export default function RecolectorDashboard() {
   ])
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['recolector']}>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -362,5 +364,6 @@ export default function RecolectorDashboard() {
         </div>
       </div>
     </div>
+    </RoleGuard>
   )
 }

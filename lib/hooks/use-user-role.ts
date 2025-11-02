@@ -4,17 +4,18 @@ import { useAccount } from 'wagmi'
 import { useIsRecyclingCenter } from './use-recycling-contract'
 import { useUserDeliveries } from './use-recycling-contract'
 import { useState, useEffect } from 'react'
+import { getSelectedRole, type SelectedRole } from '@/components/role-selector'
 
 export type UserRole = 'usuario' | 'recolector' | 'centro' | null
 
 /**
  * Hook para determinar el rol del usuario conectado
- * - Centro: si la wallet está registrada como centro de reciclaje
- * - Recolector: si está marcado como recolector (localStorage) o ha aceptado entregas
- * - Usuario: por defecto o si ha creado entregas
+ * - Centro: si la wallet está registrada como centro de reciclaje (verificado en contrato)
+ * - Recolector: si el usuario seleccionó rol de recolector O ha aceptado entregas
+ * - Usuario: si el usuario seleccionó rol de usuario O por defecto
  */
 
-// Constante para la clave de localStorage
+// Constante para la clave de localStorage (mantenemos compatibilidad)
 const COLLECTOR_ROLE_KEY = 'user_role_collector'
 
 /**
@@ -114,7 +115,9 @@ export function useUserRole(): {
     }
   }
 
-  // Prioridad: Centro > Recolector (explícito o implícito) > Usuario
+  // Prioridad: Centro > Rol seleccionado > Recolector (implícito por entregas aceptadas) > Usuario
+
+  // Si es centro de reciclaje (verificado en el contrato), siempre es centro
   if (isRecyclingCenter) {
     return {
       role: 'centro',
@@ -122,18 +125,28 @@ export function useUserRole(): {
     }
   }
 
-  // Es recolector si está marcado explícitamente O ha aceptado entregas
-  if (isMarkedAsCollector || hasAcceptedDelivery) {
+  // Verificar si el usuario seleccionó un rol explícitamente
+  const selectedRole = mounted ? getSelectedRole(address) : null
+
+  if (selectedRole) {
+    return {
+      role: selectedRole,
+      isLoading,
+    }
+  }
+
+  // Si no tiene rol seleccionado pero ha aceptado entregas, es recolector implícito
+  if (hasAcceptedDelivery) {
     return {
       role: 'recolector',
       isLoading,
     }
   }
 
-  // Si ha creado entregas, es un usuario activo
-  // Si no, también es usuario por defecto
+  // Por defecto, si no tiene rol seleccionado y no ha aceptado entregas, es usuario
+  // (pero el selector de rol aparecerá para que elija)
   return {
-    role: 'usuario',
+    role: null, // null indica que debe seleccionar un rol
     isLoading,
   }
 }

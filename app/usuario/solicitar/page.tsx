@@ -19,6 +19,7 @@ import { formatEther, parseEther } from "viem"
 import { Recycle, ArrowLeft, ArrowRight, Package, Calendar, MapPin, ImageIcon, AlertCircle, Wallet, CheckCircle2 } from "lucide-react"
 import { RecyclingCenterSelector } from "@/components/recycling-center-selector"
 import { Logo } from "@/components/logo"
+import { RoleGuard } from "@/components/role-guard"
 
 export default function SolicitarRecoleccionPage() {
   const router = useRouter()
@@ -169,7 +170,8 @@ export default function SolicitarRecoleccionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['usuario']}>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
@@ -569,5 +571,6 @@ export default function SolicitarRecoleccionPage() {
         </Card>
       </div>
     </div>
+    </RoleGuard>
   )
 }

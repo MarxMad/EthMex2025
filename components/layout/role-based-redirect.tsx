@@ -23,9 +23,10 @@ export function RoleBasedRedirect() {
       clearTimeout(redirectTimeoutRef.current)
     }
 
-    // Solo redirigir desde la página principal si está conectado y tiene rol
+    // Solo redirigir desde la página principal si está conectado y tiene rol seleccionado
+    // NO redirigir si role es null (debe seleccionar rol primero)
     // Agregar un delay para permitir que el usuario desconecte si quiere
-    if (pathname === '/' && isConnected && !isLoading && role) {
+    if (pathname === '/' && isConnected && !isLoading && role && role !== null) {
       redirectTimeoutRef.current = setTimeout(() => {
         switch (role) {
           case 'centro':

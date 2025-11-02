@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAccount, useDisconnect } from "wagmi"
 import { Logo } from "@/components/logo"
 import { useCenterDeliveries, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
+import { RoleGuard } from "@/components/role-guard"
 // Ya no necesitamos importar hasCollector ni getDeliveryCollector
 // Ahora usamos delivery.collector directamente del contrato
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
@@ -174,7 +175,8 @@ export default function CentroDashboard() {
     })
 
   return (
-    <div className="min-h-screen bg-background">
+    <RoleGuard allowedRoles={['centro']}>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -477,5 +479,6 @@ export default function CentroDashboard() {
         </Card>
       </div>
     </div>
+    </RoleGuard>
   )
 }
