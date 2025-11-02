@@ -190,6 +190,9 @@ export default function RecolectorDashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-6 max-w-4xl">
+        {/* Activar/Desactivar rol de recolector */}
+        <ActivateCollectorRole />
+        
         {/* Estado de Disponibilidad */}
         <Card className={`p-4 mb-6 ${disponible ? "bg-primary/5 border-primary/20" : "bg-muted/50"}`}>
           <div className="flex items-center justify-between">

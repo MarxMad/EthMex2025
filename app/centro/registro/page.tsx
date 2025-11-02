@@ -33,7 +33,9 @@ export default function RegistroCentroPage() {
   const { address, isConnected } = useAccount()
   const { isOwner, isLoading: checkingOwner } = useIsOwner()
   const { addRecyclingCenter, hash, isPending, isSuccess, error } = useAddRecyclingCenter()
-  const { setCenterMaterialPrice, hash: priceHash, isPending: isSettingPrice, isSuccess: priceSetSuccess } = useSetCenterMaterialPrice()
+  // Crear una nueva instancia del hook para cada llamada para evitar conflictos de estado
+  const setCenterMaterialPriceHook = useSetCenterMaterialPrice()
+  const { setCenterMaterialPrice, hash: priceHash, isPending: isSettingPrice, isSuccess: priceSetSuccess } = setCenterMaterialPriceHook
   const [paso, setPaso] = useState(1)
   const [configuringPrices, setConfiguringPrices] = useState(false)
   const [priceConfigStatus, setPriceConfigStatus] = useState<Record<string, boolean>>({})
@@ -118,6 +120,15 @@ export default function RegistroCentroPage() {
       const materialContractName = materialMapping[material] || material.toLowerCase()
       const tokenName = token === PaymentToken.ETH ? "ETH" : token === PaymentToken.USDC ? "USDC" : "MXNB"
       
+      console.log('📝 Configurando precio:', {
+        materialDisplay: material,
+        materialContractName,
+        token,
+        tokenName,
+        price,
+        centerWallet,
+      })
+      
       // Guardar qué precio estamos configurando para mostrar confirmación después
       setLastConfiguredPrice({ material, token: tokenName })
       
@@ -144,6 +155,12 @@ export default function RegistroCentroPage() {
   // Efecto para actualizar estado cuando un precio se configura exitosamente
   useEffect(() => {
     if (priceSetSuccess && priceHash && lastConfiguredPrice) {
+      console.log('✅ Precio configurado exitosamente:', {
+        material: lastConfiguredPrice.material,
+        token: lastConfiguredPrice.token,
+        hash: priceHash,
+      })
+      
       // Marcar como configurado usando "material-token" como clave
       const key = `${lastConfiguredPrice.material}-${lastConfiguredPrice.token}`
       setConfiguredPrices(prev => ({ ...prev, [key]: true }))

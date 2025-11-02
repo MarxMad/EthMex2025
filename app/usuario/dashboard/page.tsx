@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useUserDeliveries } from "@/lib/hooks/use-recycling-contract"
 import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
+import { ActivateCollectorRole } from "@/components/activate-collector-role"
 import {
   Plus,
   Clock,
@@ -121,6 +122,9 @@ export default function UsuarioDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
+        {/* Opción para activar como recolector */}
+        <ActivateCollectorRole />
+        
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
