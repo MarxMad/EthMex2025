@@ -41,8 +41,8 @@ export default function HomePage() {
             {/* Badge animado */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 border border-primary/20">
               <Sparkles className="w-4 h-4 animate-pulse" />
-              El Uber del Reciclaje
-            </div>
+            El Uber del Reciclaje
+          </div>
 
             {/* Título principal */}
             <h1 className="text-5xl md:text-7xl font-bold mb-6 text-balance animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
@@ -51,12 +51,12 @@ export default function HomePage() {
               </span>
               <br />
               <span className="text-foreground">con un solo tap</span>
-            </h1>
+          </h1>
 
             <p className="text-xl md:text-2xl text-muted-foreground mb-10 text-pretty leading-relaxed max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500">
-              Empoderamos a recolectores, conectamos centros de reciclaje y facilitamos que empresas y usuarios reciclen
+            Empoderamos a recolectores, conectamos centros de reciclaje y facilitamos que empresas y usuarios reciclen
               de manera simple y rentable usando blockchain.
-            </p>
+          </p>
 
             {/* Estadísticas rápidas */}
             <div className="grid grid-cols-3 gap-6 mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700">
@@ -77,14 +77,14 @@ export default function HomePage() {
             {/* CTAs mejorados */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-1000">
               <Button size="lg" className="text-base group" asChild>
-                <Link href="/auth/registro">
-                  Solicitar Recolección
+              <Link href="/auth/registro">
+                Solicitar Recolección
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </Button>
+              </Link>
+            </Button>
               <Button size="lg" variant="outline" className="text-base bg-transparent backdrop-blur-sm border-2" asChild>
-                <Link href="/auth/registro">Ser Recolector</Link>
-              </Button>
+              <Link href="/auth/registro">Ser Recolector</Link>
+            </Button>
               <Button size="lg" variant="outline" className="text-base bg-transparent backdrop-blur-sm border-2" asChild>
                 <Link href="/centro/registro">
                   <Building2 className="w-5 h-5 mr-2" />
@@ -106,7 +106,7 @@ export default function HomePage() {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Únete a la economía circular del reciclaje desde cualquier rol y transforma residuos en oportunidades
-            </p>
+          </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -210,7 +210,7 @@ export default function HomePage() {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Blockchain, transparencia y automatización para revolucionar el reciclaje
-            </p>
+          </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -263,14 +263,14 @@ export default function HomePage() {
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
                 <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
                   1
-                </div>
-                <div>
+              </div>
+              <div>
                   <h3 className="text-2xl font-bold text-foreground mb-3">Solicita la recolección</h3>
                   <p className="text-muted-foreground leading-relaxed text-lg">
                     El usuario o empresa agenda una recolección especificando tipo y cantidad de material reciclable desde la app.
-                  </p>
-                </div>
+                </p>
               </div>
+            </div>
 
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
                 <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
@@ -286,25 +286,25 @@ export default function HomePage() {
 
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
                 <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
-                  3
-                </div>
-                <div>
+                3
+              </div>
+              <div>
                   <h3 className="text-2xl font-bold text-foreground mb-3">Entrega al centro</h3>
                   <p className="text-muted-foreground leading-relaxed text-lg">
                     El recolector lleva el material al centro de reciclaje donde se pesa, valora y verifica la calidad.
-                  </p>
-                </div>
+                </p>
               </div>
+            </div>
 
               <div className="flex gap-6 items-start p-6 rounded-xl hover:bg-muted/50 transition-colors">
                 <div className="w-16 h-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl flex-shrink-0 shadow-lg">
-                  4
-                </div>
-                <div>
+                4
+              </div>
+              <div>
                   <h3 className="text-2xl font-bold text-foreground mb-3">Pago liberado</h3>
                   <p className="text-muted-foreground leading-relaxed text-lg">
                     Una vez verificado el material, el centro libera el pago al usuario o recolector automáticamente mediante smart contract.
-                  </p>
+                </p>
                 </div>
               </div>
             </div>
@@ -374,17 +374,17 @@ export default function HomePage() {
               </h2>
               <p className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed max-w-2xl mx-auto">
                 Únete a la revolución del reciclaje y forma parte del cambio. Miles ya están transformando residuos en oportunidades.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button size="lg" className="text-base group shadow-lg" asChild>
                   <Link href="/auth/registro">
                     Registrarse como Usuario
                     <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Link>
-                </Button>
+              </Button>
                 <Button size="lg" variant="outline" className="text-base border-2 backdrop-blur-sm" asChild>
-                  <Link href="/auth/registro">Registrarse como Recolector</Link>
-                </Button>
+                <Link href="/auth/registro">Registrarse como Recolector</Link>
+              </Button>
               </div>
             </div>
           </Card>

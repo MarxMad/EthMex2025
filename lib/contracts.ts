@@ -2,15 +2,34 @@
 
 // Direcciones del contrato RecyclingEscrowV3 por red
 export const RECYCLING_CONTRACT_ADDRESSES = {
-  arbitrumSepolia: '0x44ef6c17d14e35660dae0769ab42f6295f09fb48' as const, // V3 con precios por centro
+  arbitrumSepolia: '0x9eac6fff8014b159bd930cb526c3059a1a65e298' as const, // V3 desplegado
   scrollSepolia: '', // Se actualizará cuando se despliegue en Scroll
 } as const
 
 // Dirección del contrato activo (usar según la red configurada)
 export const RECYCLING_CONTRACT_ADDRESS = RECYCLING_CONTRACT_ADDRESSES.arbitrumSepolia
 
-// ABI del contrato RecyclingEscrowV3
+// ABI del contrato RecyclingEscrowV3 (actualizado desde contrato desplegado)
 export const RECYCLING_CONTRACT_ABI = [
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: '_deliveryId',
+        type: 'uint256',
+      },
+    ],
+    name: 'acceptDelivery',
+    outputs: [
+      {
+        internalType: 'bool',
+        name: '',
+        type: 'bool',
+      },
+    ],
+    stateMutability: 'payable',
+    type: 'function',
+  },
   {
     inputs: [
       {
@@ -60,7 +79,7 @@ export const RECYCLING_CONTRACT_ABI = [
         type: 'uint256',
       },
     ],
-    stateMutability: 'payable',
+    stateMutability: 'nonpayable',
     type: 'function',
   },
   {
@@ -165,6 +184,37 @@ export const RECYCLING_CONTRACT_ABI = [
       {
         indexed: true,
         internalType: 'address',
+        name: 'collector',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'paymentAmount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'enum RecyclingEscrowV3.PaymentToken',
+        name: 'paymentToken',
+        type: 'uint8',
+      },
+    ],
+    name: 'DeliveryAccepted',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'uint256',
+        name: 'deliveryId',
+        type: 'uint256',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
         name: 'user',
         type: 'address',
       },
@@ -218,6 +268,12 @@ export const RECYCLING_CONTRACT_ABI = [
         type: 'address',
       },
       {
+        indexed: true,
+        internalType: 'address',
+        name: 'collector',
+        type: 'address',
+      },
+      {
         indexed: false,
         internalType: 'string',
         name: 'reason',
@@ -240,6 +296,12 @@ export const RECYCLING_CONTRACT_ABI = [
         indexed: true,
         internalType: 'address',
         name: 'user',
+        type: 'address',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'collector',
         type: 'address',
       },
       {
@@ -475,24 +537,52 @@ export const RECYCLING_CONTRACT_ABI = [
     type: 'function',
   },
   {
-    inputs: [
+    inputs: [],
+    name: 'ARBITRUM_ONE_MXNB',
+    outputs: [
       {
         internalType: 'address',
         name: '',
         type: 'address',
       },
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
     ],
-    name: 'centerDeliveries',
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'ARBITRUM_ONE_USDC',
     outputs: [
       {
-        internalType: 'uint256',
+        internalType: 'address',
         name: '',
-        type: 'uint256',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'ARBITRUM_SEPOLIA_MXNB',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'ARBITRUM_SEPOLIA_USDC',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
       },
     ],
     stateMutability: 'view',
@@ -571,6 +661,11 @@ export const RECYCLING_CONTRACT_ABI = [
       {
         internalType: 'address',
         name: 'recyclingCenter',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: 'collector',
         type: 'address',
       },
       {
@@ -778,40 +873,15 @@ export const RECYCLING_CONTRACT_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: '',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    name: 'userDeliveries',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
 ] as const
 
-// Enum para el método de pago
+// Enums y tipos TypeScript
 export enum PaymentToken {
   ETH = 0,
   USDC = 1,
   MXNB = 2,
 }
 
-// Enum para el estado de la entrega
 export enum DeliveryStatus {
   Pending = 0,
   Validated = 1,
@@ -819,10 +889,11 @@ export enum DeliveryStatus {
   Completed = 3,
 }
 
-// Tipo para la estructura Delivery (actualizado con V3)
+// Tipo para la estructura Delivery (actualizado con V3 - incluye collector)
 export interface Delivery {
   user: `0x${string}`
   recyclingCenter: `0x${string}`
+  collector: `0x${string}` // Recolector que aceptó la entrega (address(0) si no tiene)
   materialType: string
   amount: bigint
   paymentAmount: bigint

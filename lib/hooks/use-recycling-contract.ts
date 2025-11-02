@@ -49,39 +49,11 @@ export function useCreateDelivery() {
         valueAmount,
       })
 
-      // Para ETH: calcular y enviar el valor correcto
+      // NUEVO MODELO: El usuario NO paga al crear la entrega
+      // El recolector será quien pague cuando acepte la entrega
+      // Por lo tanto, no enviamos ningún valor
       let value: bigint = 0n
-      if (paymentToken === PaymentToken.ETH) {
-        if (!valueAmount || parseFloat(valueAmount) <= 0) {
-          throw new Error('Debe proporcionar un monto válido para pagos en ETH')
-        }
-
-        value = parseEther(valueAmount)
-        console.log('💰 Valor ETH a enviar:', formatEther(value), 'ETH')
-        
-        // Validar saldo de ETH ANTES de enviar la transacción
-        if (balance) {
-          // Necesitamos ETH para el pago + gas (aproximadamente)
-          // Agregar un pequeño margen para gas (por ejemplo, 0.001 ETH)
-          const gasBuffer = parseEther('0.001')
-          const totalRequired = value + gasBuffer
-          
-          if (balance.value < totalRequired) {
-            const shortfall = totalRequired - balance.value
-            throw new Error(
-              `Saldo insuficiente. Necesitas ${formatEther(totalRequired)} ETH ` +
-              `(${formatEther(value)} para el pago + ${formatEther(gasBuffer)} aprox. para gas), ` +
-              `pero solo tienes ${formatEther(balance.value)} ETH. ` +
-              `Falta: ${formatEther(shortfall)} ETH`
-            )
-          }
-        }
-      } else {
-        // Para tokens ERC20, no se envía ETH
-        value = 0n
-        console.log('💰 Pago con token ERC20 - no se envía ETH')
-        // TODO: Validar saldo y allowance de tokens ERC20 aquí cuando se implementen
-      }
+      console.log('💰 Creando entrega sin costo - El recolector pagará al aceptar')
 
       // Validar que los parámetros sean correctos
       if (amount <= 0n) {
@@ -101,70 +73,11 @@ export function useCreateDelivery() {
       
       console.log('📤 Enviando transacción...')
       
-      // OPTIMIZACIÓN: Estimar gas antes de enviar para evitar diferencias entre wallets
-      // Algunas wallets sobreestiman el gas cuando ven arrays de storage que pueden crecer
-      // Al forzar una estimación precisa, todas las wallets usan el mismo valor
-      let gasEstimate: bigint | undefined
-      let maxFeePerGas: bigint | undefined
-      let maxPriorityFeePerGas: bigint | undefined
+      // NUEVO: Ya no necesitamos estimar gas complejo porque no enviamos valor
+      // La transacción es más simple (solo crear el registro)
+      console.log('📤 Enviando transacción (sin pago - el recolector pagará al aceptar)...')
       
-      try {
-        if (publicClient && address) {
-          // Primero, codificar los datos de la transacción
-          const encodedData = encodeFunctionData({
-            abi: RECYCLING_CONTRACT_ABI,
-            functionName: 'createDelivery',
-            args: [
-              normalizedCenter,
-              materialType,
-              amount,
-              paymentToken,
-              metadata || '',
-            ],
-          })
-          
-          // Estimar gas con la transacción completa
-          gasEstimate = await publicClient.estimateGas({
-            account: address,
-            to: RECYCLING_CONTRACT_ADDRESS,
-            data: encodedData,
-            value: value,
-          })
-          
-          // Agregar margen de seguridad del 25% (un poco más para arrays que pueden crecer)
-          // Esto evita que la transacción falle si el array crece durante la ejecución
-          gasEstimate = (gasEstimate * 125n) / 100n
-          
-          // Obtener sugerencias de fee del network para usar precios correctos
-          try {
-            const feeData = await publicClient.estimateFeesPerGas({
-              type: 'eip1559',
-            })
-            if (feeData.maxFeePerGas) {
-              maxFeePerGas = feeData.maxFeePerGas
-            }
-            if (feeData.maxPriorityFeePerGas) {
-              maxPriorityFeePerGas = feeData.maxPriorityFeePerGas
-            }
-          } catch (feeErr) {
-            console.warn('⚠️ No se pudieron obtener fees del network:', feeErr)
-            // Continuar sin fees específicos, la wallet los determinará
-          }
-          
-          console.log('⛽ Gas estimado:', gasEstimate.toString())
-          if (maxFeePerGas) {
-            console.log('💰 Max Fee Per Gas:', maxFeePerGas.toString())
-          }
-        }
-      } catch (gasErr: any) {
-        console.warn('⚠️ No se pudo estimar gas, usando estimación automática de la wallet:', gasErr?.message)
-        // Continuar sin límite de gas - la wallet lo estimará
-        // Esto puede causar estimaciones altas en algunas wallets, pero es mejor que falle
-      }
-      
-      // Enviar la transacción con estimación de gas y fees si están disponibles
-      // Esto fuerza a todas las wallets a usar los mismos valores, evitando discrepancias
-      const contractConfig: any = {
+      const result = await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'createDelivery',
@@ -175,21 +88,8 @@ export function useCreateDelivery() {
           paymentToken,
           metadata || '',
         ],
-        value: value, // Enviar ETH si es PaymentToken.ETH, 0n si es token ERC20
-      }
-      
-      // Agregar gas limit si se estimó (esto fuerza a todas las wallets a usar el mismo valor)
-      if (gasEstimate) {
-        contractConfig.gas = gasEstimate
-      }
-      
-      // Agregar fees EIP-1559 si están disponibles (para redes que soportan EIP-1559)
-      if (maxFeePerGas && maxPriorityFeePerGas) {
-        contractConfig.maxFeePerGas = maxFeePerGas
-        contractConfig.maxPriorityFeePerGas = maxPriorityFeePerGas
-      }
-      
-      const result = await writeContract(contractConfig)
+        value: 0n, // NO enviamos valor - el usuario no paga
+      })
 
       console.log('✅ Transacción enviada, hash:', result)
       return result
@@ -921,19 +821,7 @@ export function useUserDeliveries() {
 
             return {
               id: deliveryId,
-              delivery: {
-                user: delivery[0],
-                recyclingCenter: delivery[1],
-                materialType: delivery[2],
-                amount: delivery[3],
-                paymentAmount: delivery[4],
-                paymentToken: delivery[5] as PaymentToken,
-                status: delivery[6] as DeliveryStatus,
-                createdAt: delivery[7],
-                validatedAt: delivery[8],
-                rejectionReason: delivery[9],
-                metadata: delivery[10],
-              } as Delivery,
+              delivery: parseDeliveryFromContract(delivery),
             }
           } catch (err) {
             console.error(`Error loading delivery ${deliveryId}:`, err)
@@ -1205,17 +1093,8 @@ export function usePendingDeliveries() {
               return [{
                 id: deliveryId,
                 delivery: {
-                  user: delivery[0],
-                  recyclingCenter: delivery[1],
-                  materialType: delivery[2],
-                  amount: delivery[3],
-                  paymentAmount: delivery[4],
-                  paymentToken: delivery[5] as PaymentToken,
+                  ...parseDeliveryFromContract(delivery),
                   status: status,
-                  createdAt: delivery[7],
-                  validatedAt: delivery[8],
-                  rejectionReason: delivery[9],
-                  metadata: delivery[10],
                 } as Delivery,
               }, ...prev].sort((a, b) => {
                 const timeA = Number(a.delivery.createdAt)
@@ -1284,17 +1163,8 @@ export function usePendingDeliveries() {
               return {
                 id,
                 delivery: {
-                  user: delivery[0],
-                  recyclingCenter: delivery[1],
-                  materialType: delivery[2],
-                  amount: delivery[3],
-                  paymentAmount: delivery[4],
-                  paymentToken: delivery[5] as PaymentToken,
+                  ...parseDeliveryFromContract(delivery),
                   status: status,
-                  createdAt: delivery[7],
-                  validatedAt: delivery[8],
-                  rejectionReason: delivery[9],
-                  metadata: delivery[10],
                 } as Delivery,
               }
             } catch {
@@ -1325,6 +1195,25 @@ export function usePendingDeliveries() {
   }
 }
 
+// Helper function para parsear Delivery desde datos del contrato
+// El struct en Solidity es: user, recyclingCenter, collector, materialType, amount, paymentAmount, paymentToken, status, createdAt, validatedAt, rejectionReason, metadata
+function parseDeliveryFromContract(deliveryData: any): Delivery {
+  return {
+    user: deliveryData[0],
+    recyclingCenter: deliveryData[1],
+    collector: deliveryData[2], // Nuevo campo
+    materialType: deliveryData[3],
+    amount: deliveryData[4],
+    paymentAmount: deliveryData[5],
+    paymentToken: deliveryData[6] as PaymentToken,
+    status: deliveryData[7] as DeliveryStatus,
+    createdAt: deliveryData[8],
+    validatedAt: deliveryData[9],
+    rejectionReason: deliveryData[10],
+    metadata: deliveryData[11],
+  }
+}
+
 // Hook para obtener una entrega específica por ID usando el mapping deliveries
 // Esta versión reemplaza la anterior que usaba getDelivery
 export function useDelivery(deliveryId: bigint | undefined) {
@@ -1346,20 +1235,7 @@ export function useDelivery(deliveryId: bigint | undefined) {
     }
   }
 
-  const deliveryData = data as any
-  const delivery: Delivery = {
-    user: deliveryData[0],
-    recyclingCenter: deliveryData[1],
-    materialType: deliveryData[2],
-    amount: deliveryData[3],
-    paymentAmount: deliveryData[4],
-    paymentToken: deliveryData[5] as PaymentToken,
-    status: deliveryData[6] as DeliveryStatus,
-    createdAt: deliveryData[7],
-    validatedAt: deliveryData[8],
-    rejectionReason: deliveryData[9],
-    metadata: deliveryData[10],
-  }
+  const delivery = parseDeliveryFromContract(data)
 
   return {
     delivery,
@@ -1513,19 +1389,7 @@ export function useCenterDeliveries(centerAddress: `0x${string}` | undefined) {
 
             return {
               id: deliveryId,
-              delivery: {
-                user: delivery[0],
-                recyclingCenter: delivery[1],
-                materialType: delivery[2],
-                amount: delivery[3],
-                paymentAmount: delivery[4],
-                paymentToken: delivery[5] as PaymentToken,
-                status: delivery[6] as DeliveryStatus,
-                createdAt: delivery[7],
-                validatedAt: delivery[8],
-                rejectionReason: delivery[9],
-                metadata: delivery[10],
-              } as Delivery,
+              delivery: parseDeliveryFromContract(delivery),
             }
           } catch (err) {
             console.error(`Error loading delivery ${deliveryId}:`, err)

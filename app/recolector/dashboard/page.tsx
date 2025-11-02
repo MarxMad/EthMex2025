@@ -7,11 +7,12 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { usePendingDeliveries } from "@/lib/hooks/use-recycling-contract"
-import { useAcceptDelivery, hasCollector } from "@/lib/hooks/use-collector-acceptance"
+import { useAcceptDelivery } from "@/lib/hooks/use-collector-acceptance"
 import { Logo } from "@/components/logo"
 import { useAccount, useDisconnect } from "wagmi"
 import { PaymentToken } from "@/lib/contracts"
 import { formatEther } from "viem"
+import { ActivateCollectorRole } from "@/components/activate-collector-role"
 import {
   MapPin,
   Clock,
@@ -29,34 +30,16 @@ export default function RecolectorDashboard() {
   const { address } = useAccount()
   const { disconnect } = useDisconnect()
   const { deliveries, isLoading } = usePendingDeliveries()
-  const { acceptDelivery } = useAcceptDelivery()
+  const { acceptDelivery, isPending: isAccepting } = useAcceptDelivery()
   const [acceptedDeliveries, setAcceptedDeliveries] = useState<Set<string>>(new Set())
 
-  // Cargar entregas ya aceptadas desde localStorage
-  useEffect(() => {
-    if (address) {
-      const stored = localStorage.getItem(`collector_deliveries_${address.toLowerCase()}`)
-      if (stored) {
-        try {
-          const deliveries: string[] = JSON.parse(stored)
-          setAcceptedDeliveries(new Set(deliveries))
-        } catch {
-          // Ignorar errores de parsing
-        }
-      }
-    }
-  }, [address])
-
   // Filtrar solo entregas que NO tienen recolector asignado (no aceptadas)
-  // Solo filtrar en el cliente después del mount para evitar problemas de hidratación
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  const entregasDisponibles = mounted 
-    ? deliveries.filter(({ id }) => !hasCollector(id))
-    : deliveries // Durante SSR, mostrar todas temporalmente
+  // Usar el campo collector directamente del contrato en lugar de localStorage
+  const entregasDisponibles = deliveries.filter(({ delivery }) => {
+    // Verificar si la entrega tiene collector asignado (address(0) = no tiene)
+    const collector = delivery.collector
+    return !collector || collector === '0x0000000000000000000000000000000000000000'
+  })
 
   // Mapeo de materiales para mostrar
   const materialNames: Record<string, string> = {
@@ -90,14 +73,15 @@ export default function RecolectorDashboard() {
   }
 
   // Función para manejar la aceptación de una entrega
-  const handleAcceptDelivery = (deliveryId: bigint) => {
+  const handleAcceptDelivery = async (deliveryId: bigint) => {
     try {
-      acceptDelivery(deliveryId)
+      await acceptDelivery(deliveryId)
       setAcceptedDeliveries(prev => new Set([...prev, deliveryId.toString()]))
       // Opcional: mostrar notificación de éxito
     } catch (err: any) {
       console.error('Error aceptando entrega:', err)
-      alert('Error al aceptar la entrega. Por favor intenta nuevamente.')
+      const errorMessage = err?.message || 'Error al aceptar la entrega. Por favor intenta nuevamente.'
+      alert(errorMessage)
     }
   }
 
@@ -129,6 +113,7 @@ export default function RecolectorDashboard() {
       urgente: false, // Podrías calcular esto basado en fecha/hora
       deliveryId: id,
       delivery: delivery,
+      metadata: metadata, // Incluir metadata parseada
     }
   })
 
@@ -312,29 +297,32 @@ export default function RecolectorDashboard() {
                       <MapPin className="w-4 h-4" />
                       <span>{solicitud.direccion}</span>
                     </div>
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Navigation className="w-4 h-4" />
-                        <span>{solicitud.distancia}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
+                    {solicitud.metadata.fecha && solicitud.metadata.hora && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="w-4 h-4" />
-                        <span>{solicitud.tiempo}</span>
+                        <span>{solicitud.metadata.fecha} a las {solicitud.metadata.hora}</span>
                       </div>
-                    </div>
+                    )}
+                    {solicitud.metadata.notas && (
+                      <div className="text-sm text-muted-foreground italic">
+                        Notas: {solicitud.metadata.notas}
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/recolector/entrega/${solicitud.deliveryId.toString()}`}>Ver Detalles</Link>
+                      <Link href={`/recolector/solicitud/${solicitud.deliveryId.toString()}`}>Ver Detalles</Link>
                     </Button>
                     <Button 
                       size="sm" 
                       className="bg-primary"
                       onClick={() => handleAcceptDelivery(solicitud.deliveryId)}
-                      disabled={acceptedDeliveries.has(solicitud.deliveryId.toString())}
+                      disabled={acceptedDeliveries.has(solicitud.deliveryId.toString()) || isAccepting}
                     >
-                      {acceptedDeliveries.has(solicitud.deliveryId.toString()) 
+                      {isAccepting 
+                        ? "Aceptando..."
+                        : acceptedDeliveries.has(solicitud.deliveryId.toString()) 
                         ? "Ya Aceptada" 
                         : "Aceptar Recolección"}
                     </Button>

@@ -61,7 +61,7 @@ export default function RootLayout({
       <body className={`font-sans antialiased`}>
         <WagmiProvider>
           <Navbar />
-          {children}
+        {children}
         </WagmiProvider>
         <Analytics />
       </body>

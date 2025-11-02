@@ -14,6 +14,20 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
+    // ============ CONSTANTES DE TOKENS ============
+    // Direcciones oficiales para facilitar el despliegue
+    // Solo necesitas escribir el nombre de la constante en Remix, no la dirección completa!
+    
+    // Arbitrum Sepolia (Testnet) - ⭐ USAR ESTAS PARA SEPOLIA
+    address public constant ARBITRUM_SEPOLIA_USDC = 0xf3C3351D6Bd0098EEb33ca8f830FAf2a141Ea2E1;
+    address public constant ARBITRUM_SEPOLIA_MXNB = 0x7911e898d0F91Db0DF9604574878906a3aB3E61e;
+    
+    // Arbitrum One (Mainnet) - Solo para producción
+    address public constant ARBITRUM_ONE_USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+    address public constant ARBITRUM_ONE_MXNB = 0x59B07Ab47481E1B95E15E96b06DfDA50b50F1053;
+    
+    // ============ FIN CONSTANTES ============
+
     enum DeliveryStatus {
         Pending,
         Validated,
@@ -30,6 +44,7 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
     struct Delivery {
         address user;
         address recyclingCenter;
+        address collector; // Recolector que aceptó la entrega
         string materialType;
         uint256 amount;
         uint256 paymentAmount;
@@ -75,9 +90,17 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
         PaymentToken paymentToken
     );
     
+    event DeliveryAccepted(
+        uint256 indexed deliveryId,
+        address indexed collector,
+        uint256 paymentAmount,
+        PaymentToken paymentToken
+    );
+    
     event DeliveryValidated(
         uint256 indexed deliveryId,
         address indexed user,
+        address indexed collector,
         uint256 paymentAmount,
         PaymentToken paymentToken
     );
@@ -85,6 +108,7 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
     event DeliveryRejected(
         uint256 indexed deliveryId,
         address indexed user,
+        address indexed collector,
         string reason
     );
     
@@ -121,6 +145,26 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
         _;
     }
 
+    /**
+     * @dev Constructor del contrato
+     * @param _usdcToken Dirección del token USDC - Usar constante ARBITRUM_SEPOLIA_USDC para Sepolia
+     * @param _mxnbToken Dirección del token MXNB - Usar constante ARBITRUM_SEPOLIA_MXNB para Sepolia
+     * @param _commissionWallet Dirección que recibirá las comisiones
+     * @param _commissionRate Tasa de comisión en basis points (100 = 1%, 1000 = 10% máximo)
+     * 
+     * Para Arbitrum Sepolia (Testnet) - ⭐ ACTUAL:
+     * En Remix, simplemente escribe:
+     * ARBITRUM_SEPOLIA_USDC
+     * ARBITRUM_SEPOLIA_MXNB
+     * 0xTuWallet
+     * 100
+     * 
+     * Para Arbitrum One Mainnet (Producción):
+     * ARBITRUM_ONE_USDC
+     * ARBITRUM_ONE_MXNB
+     * 0xTuWallet
+     * 100
+     */
     constructor(
         address _usdcToken,
         address _mxnbToken,
@@ -138,7 +182,10 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
 
     /**
      * @dev Crea una nueva entrega de material reciclable
-     * Usa el precio del centro si existe, sino usa el precio global
+     * NUEVO MODELO: El usuario NO paga, solo crea la solicitud con precio calculado
+     * El recolector será quien pague cuando acepte la entrega
+     * NOTA: Esta función NO es payable, por lo que Solidity rechazará automáticamente
+     * cualquier transacción que intente enviar ETH.
      */
     function createDelivery(
         address _recyclingCenter,
@@ -146,12 +193,14 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
         uint256 _amount,
         PaymentToken _paymentToken,
         string memory _metadata
-    ) external payable nonReentrant validPaymentToken(_paymentToken) returns (uint256) {
+    ) external nonReentrant validPaymentToken(_paymentToken) returns (uint256) {
         require(
             recyclingCenters[_recyclingCenter],
             "Invalid recycling center"
         );
         require(_amount > 0, "Amount must be greater than zero");
+        // No verificar msg.value aquí - la función no es payable, 
+        // Solidity rechazará automáticamente si se envía ETH
 
         // Obtener precio: primero del centro, luego global
         uint256 pricePerKg = centerMaterialPrices[_recyclingCenter][_materialType][_paymentToken];
@@ -161,42 +210,13 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
         require(pricePerKg > 0, "Price not set for this material and token");
         uint256 requiredPayment = _amount * pricePerKg;
 
-        // Verificar y transferir pago según el token
-        if (_paymentToken == PaymentToken.ETH) {
-            require(msg.value >= requiredPayment, "Insufficient ETH payment");
-            // OPTIMIZACIÓN: Solo sumar el pago requerido, no todo el msg.value
-            totalEscrowedETH += requiredPayment;
-            
-            if (msg.value > requiredPayment) {
-                (bool refundSuccess, ) = payable(msg.sender).call{
-                    value: msg.value - requiredPayment
-                }("");
-                require(refundSuccess, "Refund failed");
-            }
-        } else {
-            address tokenAddress = _paymentToken == PaymentToken.USDC ? usdcToken : mxnbToken;
-            IERC20 token = IERC20(tokenAddress);
-            
-            require(msg.value == 0, "ETH sent but token payment expected");
-            require(
-                token.balanceOf(msg.sender) >= requiredPayment,
-                "Insufficient token balance"
-            );
-            require(
-                token.allowance(msg.sender, address(this)) >= requiredPayment,
-                "Insufficient token allowance"
-            );
-            
-            token.safeTransferFrom(msg.sender, address(this), requiredPayment);
-            totalEscrowedTokens[_paymentToken] += requiredPayment;
-        }
-
         uint256 deliveryId = deliveryCounter;
         deliveryCounter++;
 
         deliveries[deliveryId] = Delivery({
             user: msg.sender,
             recyclingCenter: _recyclingCenter,
+            collector: address(0), // Aún no tiene recolector asignado
             materialType: _materialType,
             amount: _amount,
             paymentAmount: requiredPayment,
@@ -207,12 +227,6 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
             rejectionReason: "",
             metadata: _metadata
         });
-
-        // OPTIMIZACIÓN: Eliminadas las líneas que actualizaban arrays de storage
-        // userDeliveries[msg.sender].push(deliveryId);
-        // centerDeliveries[_recyclingCenter].push(deliveryId);
-        // Estas operaciones eran MUY costosas en gas. Las entregas se pueden obtener
-        // mediante eventos filtrados por dirección (user o recyclingCenter)
 
         emit DeliveryCreated(
             deliveryId,
@@ -228,7 +242,75 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Valida una entrega y libera el pago al usuario (menos comisión)
+     * @dev Recolector acepta una entrega y bloquea el pago en el contrato
+     * Esta función requiere que el recolector pague el monto calculado
+     */
+    function acceptDelivery(
+        uint256 _deliveryId
+    ) external payable nonReentrant returns (bool) {
+        Delivery storage delivery = deliveries[_deliveryId];
+        
+        require(delivery.user != address(0), "Delivery does not exist");
+        require(
+            delivery.status == DeliveryStatus.Pending,
+            "Delivery not pending"
+        );
+        require(
+            delivery.collector == address(0),
+            "Delivery already accepted by another collector"
+        );
+        require(msg.sender != delivery.user, "User cannot accept their own delivery");
+
+        // Verificar y transferir pago según el token
+        if (delivery.paymentToken == PaymentToken.ETH) {
+            require(msg.value >= delivery.paymentAmount, "Insufficient ETH payment");
+            
+            // Bloquear el pago en el contrato
+            totalEscrowedETH += delivery.paymentAmount;
+            
+            // Reembolsar exceso si hay
+            if (msg.value > delivery.paymentAmount) {
+                (bool refundSuccess, ) = payable(msg.sender).call{
+                    value: msg.value - delivery.paymentAmount
+                }("");
+                require(refundSuccess, "Refund failed");
+            }
+        } else {
+            address tokenAddress = delivery.paymentToken == PaymentToken.USDC 
+                ? usdcToken 
+                : mxnbToken;
+            IERC20 token = IERC20(tokenAddress);
+            
+            require(msg.value == 0, "ETH sent but token payment expected");
+            require(
+                token.balanceOf(msg.sender) >= delivery.paymentAmount,
+                "Insufficient token balance"
+            );
+            require(
+                token.allowance(msg.sender, address(this)) >= delivery.paymentAmount,
+                "Insufficient token allowance"
+            );
+            
+            token.safeTransferFrom(msg.sender, address(this), delivery.paymentAmount);
+            totalEscrowedTokens[delivery.paymentToken] += delivery.paymentAmount;
+        }
+
+        // Asignar recolector a la entrega
+        delivery.collector = msg.sender;
+
+        emit DeliveryAccepted(
+            _deliveryId,
+            msg.sender,
+            delivery.paymentAmount,
+            delivery.paymentToken
+        );
+
+        return true;
+    }
+
+    /**
+     * @dev Valida una entrega y libera el pago al usuario desde los fondos del recolector
+     * El dinero fue depositado por el recolector al aceptar la entrega
      */
     function validateDelivery(
         uint256 _deliveryId
@@ -245,6 +327,10 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
         require(
             delivery.status == DeliveryStatus.Pending,
             "Delivery not pending"
+        );
+        require(
+            delivery.collector != address(0),
+            "Delivery must be accepted by a collector first"
         );
 
         delivery.status = DeliveryStatus.Validated;
@@ -263,7 +349,7 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
                 require(commissionSuccess, "Commission transfer failed");
             }
             
-            // Transferir pago al usuario
+            // Transferir pago al usuario (dinero viene del recolector que lo depositó)
             (bool userPaymentSuccess, ) = payable(delivery.user).call{value: userPayment}("");
             require(userPaymentSuccess, "User payment transfer failed");
         } else {
@@ -279,20 +365,22 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
                 token.safeTransfer(commissionWallet, commission);
             }
             
-            // Transferir pago al usuario
+            // Transferir pago al usuario (dinero viene del recolector)
             token.safeTransfer(delivery.user, userPayment);
         }
 
         emit DeliveryValidated(
             _deliveryId,
             delivery.user,
+            delivery.collector,
             userPayment,
             delivery.paymentToken
         );
     }
 
     /**
-     * @dev Rechaza una entrega y reembolsa al usuario
+     * @dev Rechaza una entrega y devuelve el dinero al recolector
+     * El dinero fue depositado por el recolector, por lo que se le devuelve
      */
     function rejectDelivery(
         uint256 _deliveryId,
@@ -311,6 +399,10 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
             delivery.status == DeliveryStatus.Pending,
             "Delivery not pending"
         );
+        require(
+            delivery.collector != address(0),
+            "Delivery must be accepted by a collector first"
+        );
 
         delivery.status = DeliveryStatus.Rejected;
         delivery.rejectionReason = _reason;
@@ -319,7 +411,8 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
 
         if (delivery.paymentToken == PaymentToken.ETH) {
             totalEscrowedETH -= refundAmount;
-            (bool refundSuccess, ) = payable(delivery.user).call{value: refundAmount}("");
+            // Devolver el dinero al recolector que lo depositó
+            (bool refundSuccess, ) = payable(delivery.collector).call{value: refundAmount}("");
             require(refundSuccess, "Refund transfer failed");
         } else {
             address tokenAddress = delivery.paymentToken == PaymentToken.USDC 
@@ -328,10 +421,11 @@ contract RecyclingEscrowV3 is ReentrancyGuard, Ownable {
             IERC20 token = IERC20(tokenAddress);
             
             totalEscrowedTokens[delivery.paymentToken] -= refundAmount;
-            token.safeTransfer(delivery.user, refundAmount);
+            // Devolver el dinero al recolector que lo depositó
+            token.safeTransfer(delivery.collector, refundAmount);
         }
 
-        emit DeliveryRejected(_deliveryId, delivery.user, _reason);
+        emit DeliveryRejected(_deliveryId, delivery.user, delivery.collector, _reason);
     }
 
     /**

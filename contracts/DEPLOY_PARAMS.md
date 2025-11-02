@@ -2,7 +2,31 @@
 
 ## 🚀 Valores Recomendados para Deploy
 
-### Arbitrum Sepolia
+### Arbitrum One (Mainnet) - PRODUCCIÓN
+
+```solidity
+constructor(
+    0xaf88d065e77c8cC2239327C5EDb3A432268e5831,  // _usdcToken: USDC Arbitrum One ✅ OFICIAL
+    0x59b07aB47481e1B95e15e96b06DfDA50b50F1053,   // _mxnbToken: MXNB Arbitrum One ⚠️ VERIFICAR
+    0xTuDireccionMetaMask,                        // _commissionWallet: Tu wallet (usar multisig recomendado)
+    100                                           // _commissionRate: 1% (100 basis points)
+)
+```
+
+**Direcciones Oficiales Mainnet:**
+- ✅ **USDC:** `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` (USDC Nativo - Oficial de Circle)
+- ⚠️ **MXNB:** `0x59b07aB47481e1B95e15e96b06DfDA50b50F1053` (Verificar antes de usar)
+
+**Características:**
+- USDC tiene **6 decimals**
+- MXNB tiene **18 decimals** (verificar en el contrato)
+- Ambos son tokens reales con liquidez en mainnet
+
+**📋 Ver:** `ARBITRUM_MAINNET_TOKENS.md` para detalles completos
+
+---
+
+### Arbitrum Sepolia (Testnet)
 
 ```solidity
 constructor(
