@@ -43,17 +43,25 @@ export function useAcceptDelivery() {
     }
 
     // El struct es: user, recyclingCenter, collector, materialType, amount, paymentAmount, paymentToken, status, ...
+    const user = deliveryData[0] as string // user (creador de la entrega)
     const paymentAmount = deliveryData[5] as bigint // paymentAmount
     const paymentToken = deliveryData[6] as PaymentToken // paymentToken
     const collector = deliveryData[2] as string // collector
 
     console.log('📋 Datos de la entrega obtenidos:', {
       deliveryId: deliveryId.toString(),
+      user: user,
+      collector: collector || 'Sin recolector',
       paymentAmount: paymentAmount.toString(),
       paymentAmountFormatted: formatEther(paymentAmount),
       paymentToken,
-      collector: collector || 'Sin recolector',
     })
+
+    // CRÍTICO: Validar que el usuario no está intentando aceptar su propia entrega
+    // El contrato tiene: require(msg.sender != delivery.user, "User cannot accept their own delivery")
+    if (address && user.toLowerCase() === address.toLowerCase()) {
+      throw new Error('No puedes aceptar tu propia solicitud de recolección. Solo otros recolectores pueden aceptarla.')
+    }
 
     // Validar que la entrega esté pendiente y sin recolector
     if (collector && collector !== '0x0000000000000000000000000000000000000000') {

@@ -35,11 +35,19 @@ export default function RecolectorDashboard() {
   const [acceptedDeliveries, setAcceptedDeliveries] = useState<Set<string>>(new Set())
 
   // Filtrar solo entregas que NO tienen recolector asignado (no aceptadas)
+  // IMPORTANTE: También excluir entregas creadas por el mismo usuario (recolector)
   // Usar el campo collector directamente del contrato en lugar de localStorage
   const entregasDisponibles = deliveries.filter(({ delivery }) => {
     // Verificar si la entrega tiene collector asignado (address(0) = no tiene)
     const collector = delivery.collector
-    return !collector || collector === '0x0000000000000000000000000000000000000000'
+    const hasCollector = collector && collector !== '0x0000000000000000000000000000000000000000'
+    
+    // IMPORTANTE: No mostrar entregas creadas por el mismo usuario
+    // El contrato no permite que un usuario acepte sus propias entregas
+    const isOwnDelivery = address && delivery.user.toLowerCase() === address.toLowerCase()
+    
+    // Solo incluir si NO tiene recolector Y NO es una entrega propia
+    return !hasCollector && !isOwnDelivery
   })
 
   // Mapeo de materiales para mostrar
@@ -155,8 +163,9 @@ export default function RecolectorDashboard() {
       usuario: userAddress,
       urgente: false, // Podrías calcular esto basado en fecha/hora
       deliveryId: id,
-      delivery: delivery,
+      delivery: delivery, // Incluir delivery completo para validaciones
       metadata: metadata, // Incluir metadata parseada
+      isOwnDelivery: address ? delivery.user.toLowerCase() === address.toLowerCase() : false, // Flag para identificar entregas propias
     }
   })
 
