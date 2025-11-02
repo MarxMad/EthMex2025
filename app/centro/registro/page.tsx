@@ -196,7 +196,7 @@ export default function RegistroCentroPage() {
                   <Building2 className="w-4 h-4 text-muted-foreground" />
                   <Input
                     id="nombreCentro"
-                    placeholder="Ej: EcoRecicla Centro Norte"
+                    placeholder="Ej: CriKula Centro Norte"
                     value={formData.nombreCentro}
                     onChange={(e) => setFormData({ ...formData, nombreCentro: e.target.value })}
                   />

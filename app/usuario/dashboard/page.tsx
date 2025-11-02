@@ -86,7 +86,7 @@ export default function UsuarioDashboard() {
               <Recycle className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-lg font-bold text-foreground">EcoRecicla</span>
+              <span className="text-lg font-bold text-foreground">CriKula</span>
               <p className="text-xs text-muted-foreground">Usuario</p>
             </div>
           </div>

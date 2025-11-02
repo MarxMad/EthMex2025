@@ -53,7 +53,7 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-center text-foreground mb-2">Iniciar Sesión</h1>
-          <p className="text-center text-muted-foreground mb-8">Accede a tu cuenta de EcoRecicla</p>
+          <p className="text-center text-muted-foreground mb-8">Accede a tu cuenta de CriKula</p>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">

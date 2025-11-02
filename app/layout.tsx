@@ -9,7 +9,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "EcoRecicla - El Uber del Reciclaje",
+  title: "CriKula - El Uber del Reciclaje",
   description: "Conectamos usuarios, recolectores y centros de reciclaje para transformar residuos en oportunidades",
   generator: "v0.app",
 }
@@ -23,7 +23,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={`font-sans antialiased`}>
         <WagmiProvider>
-          {children}
+        {children}
         </WagmiProvider>
         <Analytics />
       </body>

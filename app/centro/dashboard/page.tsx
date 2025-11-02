@@ -94,7 +94,7 @@ export default function CentroDashboard() {
               <Recycle className="w-6 h-6 text-accent-foreground" />
             </div>
             <div>
-              <span className="text-lg font-bold text-foreground">EcoRecicla</span>
+              <span className="text-lg font-bold text-foreground">CriKula</span>
               <p className="text-xs text-muted-foreground">Centro de Reciclaje</p>
             </div>
           </div>
