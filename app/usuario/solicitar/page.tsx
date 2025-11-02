@@ -536,7 +536,7 @@ export default function SolicitarRecoleccionPage() {
                 !formData.fecha ||
                 !formData.hora ||
                 !formData.direccion ||
-                formData.direccion.trim() === ""
+                formData.direccion.trim().length === 0
               }
             >
               {loading || isPending 

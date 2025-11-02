@@ -270,7 +270,8 @@ export default function UsuarioDashboard() {
                 </Button>
               )}
             </Card>
-          ))}
+          ))
+        }
         </div>
       </div>
     </div>

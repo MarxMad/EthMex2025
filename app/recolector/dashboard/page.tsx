@@ -327,7 +327,6 @@ export default function RecolectorDashboard() {
                 </Card>
               ))}
             </div>
-            )}
           </div>
         )}
 
