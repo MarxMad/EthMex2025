@@ -4,7 +4,7 @@ import { useAccount, useBalance, usePublicClient } from 'wagmi'
 import { useState, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { RECYCLING_CONTRACT_ADDRESS, RECYCLING_CONTRACT_ABI, PaymentToken } from '@/lib/contracts'
-import { formatEther, parseEther, encodeFunctionData } from 'viem'
+import { formatEther, parseEther, encodeFunctionData, type Address } from 'viem'
 
 /**
  * Hook para aceptar una entrega como recolector
@@ -109,60 +109,126 @@ export function useAcceptDelivery() {
       throw new Error('Pagos con tokens ERC20 aún no implementados para aceptar entregas')
     }
 
-    // Estimar gas antes de enviar la transacción
+    // Estimar gas y gas prices antes de enviar la transacción
     let gasEstimate: bigint | undefined
+    let maxFeePerGas: bigint | undefined
+    let maxPriorityFeePerGas: bigint | undefined
+    
     try {
+      // Obtener gas prices actuales de la red
+      const feeData = await publicClient.estimateFeesPerGas()
+      
+      if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+        // Usar valores estimados pero con un límite máximo razonable
+        // Limitar maxFeePerGas a máximo 100 gwei para evitar fees excesivos
+        const maxFeeLimit = parseEther('0.0000001') // 100 gwei
+        maxFeePerGas = feeData.maxFeePerGas > maxFeeLimit ? maxFeeLimit : feeData.maxFeePerGas
+        
+        // Limitar maxPriorityFeePerGas a máximo 5 gwei
+        const maxPriorityLimit = parseEther('0.000000005') // 5 gwei
+        maxPriorityFeePerGas = feeData.maxPriorityFeePerGas > maxPriorityLimit 
+          ? maxPriorityLimit 
+          : feeData.maxPriorityFeePerGas
+          
+        console.log('💰 Gas prices estimados:', {
+          maxFeePerGas: formatEther(maxFeePerGas) + ' ETH',
+          maxPriorityFeePerGas: formatEther(maxPriorityFeePerGas) + ' ETH',
+        })
+      }
+      
+      // Estimar gas limit necesario
       gasEstimate = await publicClient.estimateGas({
         account: address,
         to: RECYCLING_CONTRACT_ADDRESS,
         data: encodeFunctionData({
           abi: RECYCLING_CONTRACT_ABI,
           functionName: 'acceptDelivery',
-          args: [deliveryId],
+          args: [deliveryId], // ✅ Solo necesita deliveryId (uint256)
         }),
         value: value,
       })
       
-      // Agregar un margen de seguridad del 20% al gas estimado
-      const gasWithMargin = (gasEstimate * BigInt(120)) / BigInt(100)
+      // Limitar el gas a un máximo razonable (250,000 unidades de gas es más que suficiente)
+      const MAX_GAS_LIMIT = 250000n
+      const gasWithMargin = gasEstimate > MAX_GAS_LIMIT 
+        ? MAX_GAS_LIMIT 
+        : (gasEstimate * BigInt(120)) / BigInt(100) // 20% margen si es menor al límite
       
       console.log('⛽ Gas estimado para acceptDelivery:', {
         estimado: gasEstimate.toString(),
         conMargen: gasWithMargin.toString(),
-        enGwei: formatEther(gasWithMargin * BigInt(20000000000)), // Aproximación si gasPrice es 20 gwei
+        maxFeePerGas: maxFeePerGas ? formatEther(maxFeePerGas) : 'N/A',
+        costoEstimado: maxFeePerGas ? formatEther(gasWithMargin * maxFeePerGas) : 'N/A',
       })
       
-      console.log('📤 Enviando transacción acceptDelivery al contrato:', {
-        contractAddress: RECYCLING_CONTRACT_ADDRESS,
+      console.log('📤 Enviando transacción acceptDelivery:', {
         functionName: 'acceptDelivery',
-        deliveryId: deliveryId.toString(),
-        value: value.toString(), // Este es el ETH que el recolector envía al contrato
-        valueFormatted: formatEther(value),
+        args: [deliveryId.toString()], // ✅ Solo deliveryId como requiere el contrato
+        value: formatEther(value) + ' ETH',
         gasLimit: gasWithMargin.toString(),
+        maxFeePerGas: maxFeePerGas?.toString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas?.toString(),
       })
       
-      // IMPORTANTE: Esta función es payable, el campo 'value' envía ETH al contrato
-      // El contrato recibe msg.value y lo bloquea en escrow
+      // IMPORTANTE: 
+      // - La función del contrato solo requiere: acceptDelivery(uint256 _deliveryId)
+      // - Es payable, así que el campo 'value' envía ETH al contrato
+      // - Establecemos límites de gas para evitar fees excesivos
       await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
-        functionName: 'acceptDelivery', // Función payable que recibe el pago
-        args: [deliveryId],
-        value: value, // Enviar ETH al contrato (el recolector paga aquí)
-        gas: gasWithMargin, // Limitar el gas para evitar estimaciones excesivas
+        functionName: 'acceptDelivery', // ✅ Nombre correcto
+        args: [deliveryId], // ✅ Solo deliveryId (uint256) como requiere el contrato
+        value: value, // ✅ Enviar ETH al contrato (payable)
+        gas: gasWithMargin, // ✅ Limitar gas para evitar estimaciones excesivas
+        ...(maxFeePerGas && maxPriorityFeePerGas ? {
+          maxFeePerGas,
+          maxPriorityFeePerGas,
+        } : {}),
       })
     } catch (gasError: any) {
-      console.error('Error estimando gas:', gasError)
-      console.log('🔄 Intentando sin límite de gas explícito (fallback)...')
-      // Si falla la estimación, intentar sin límite de gas (fallback)
-      // IMPORTANTE: value sigue siendo necesario para enviar el pago al contrato
-      await writeContract({
-        address: RECYCLING_CONTRACT_ADDRESS,
-        abi: RECYCLING_CONTRACT_ABI,
-        functionName: 'acceptDelivery',
-        args: [deliveryId],
-        value: value, // CRÍTICO: El recolector debe enviar el pago aquí
-      })
+      console.error('Error estimando gas o fees:', gasError)
+      
+      // Fallback: intentar sin límites de gas price pero con gas limit
+      // Esto es más seguro que sin límites
+      console.log('🔄 Intentando con configuración de fallback...')
+      
+      // Estimar solo el gas limit sin límites de precio
+      try {
+        const fallbackGasEstimate = await publicClient.estimateGas({
+          account: address,
+          to: RECYCLING_CONTRACT_ADDRESS,
+          data: encodeFunctionData({
+            abi: RECYCLING_CONTRACT_ABI,
+            functionName: 'acceptDelivery',
+            args: [deliveryId],
+          }),
+          value: value,
+        })
+        
+        const fallbackGasLimit = fallbackGasEstimate > 250000n 
+          ? 250000n 
+          : (fallbackGasEstimate * BigInt(120)) / BigInt(100)
+        
+        await writeContract({
+          address: RECYCLING_CONTRACT_ADDRESS,
+          abi: RECYCLING_CONTRACT_ABI,
+          functionName: 'acceptDelivery',
+          args: [deliveryId], // ✅ Solo deliveryId
+          value: value, // ✅ CRÍTICO: El recolector debe enviar el pago
+          gas: fallbackGasLimit, // ✅ Limitar gas limit al menos
+        })
+      } catch (fallbackError: any) {
+        // Último fallback: sin límites (solo para casos extremos)
+        console.warn('⚠️ Usando configuración sin límites de gas (fallback final)')
+        await writeContract({
+          address: RECYCLING_CONTRACT_ADDRESS,
+          abi: RECYCLING_CONTRACT_ABI,
+          functionName: 'acceptDelivery',
+          args: [deliveryId], // ✅ Solo deliveryId como requiere el contrato
+          value: value, // ✅ CRÍTICO: El recolector debe enviar el pago
+        })
+      }
     }
 
     return true
