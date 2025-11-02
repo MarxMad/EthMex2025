@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAccount } from "wagmi"
+import { useCenterDeliveries, useIsRecyclingCenter } from "@/lib/hooks/use-recycling-contract"
+import { DeliveryStatus, PaymentToken } from "@/lib/contracts"
+import { formatEther } from "viem"
 import {
   Recycle,
   Package,
@@ -20,69 +24,133 @@ import {
 } from "lucide-react"
 
 export default function CentroDashboard() {
-  const [solicitudesPendientes] = useState([
-    {
-      id: 1,
-      tipo: "Plástico PET",
-      cantidad: "15 kg",
-      recolector: "Carlos Méndez",
-      origen: "Usuario",
-      nombreOrigen: "María González",
-      fecha: "Hoy, 2:30 PM",
-      pago: "$120",
-    },
-    {
-      id: 2,
-      tipo: "Cartón",
-      cantidad: "30 kg",
-      recolector: "Ana Rodríguez",
-      origen: "Empresa",
-      nombreOrigen: "Empresa XYZ",
-      fecha: "Hoy, 3:15 PM",
-      pago: "$240",
-    },
-  ])
+  const { address } = useAccount()
+  const { isRecyclingCenter, isLoading: checkingCenter } = useIsRecyclingCenter(
+    address ? (address as `0x${string}`) : undefined
+  )
+  const { deliveries, isLoading } = useCenterDeliveries(
+    address ? (address as `0x${string}`) : undefined
+  )
 
-  const [enVerificacion] = useState([
-    {
-      id: 3,
-      tipo: "Aluminio",
-      cantidad: "8 kg",
-      pesoReal: "7.5 kg",
-      recolector: "Luis Torres",
-      origen: "Usuario",
-      nombreOrigen: "Carlos Pérez",
-      fecha: "Hoy, 1:00 PM",
-      pagoCalculado: "$60",
-    },
-  ])
+  // Mapeo de materiales para mostrar
+  const materialNames: Record<string, string> = {
+    plastico: "Plástico PET",
+    carton: "Cartón",
+    vidrio: "Vidrio",
+    aluminio: "Aluminio",
+    papel: "Papel",
+    electronico: "Electrónico",
+    electronicos: "Electrónicos",
+  }
 
-  const [completadas] = useState([
-    {
-      id: 4,
-      tipo: "Vidrio",
-      cantidad: "20 kg",
-      pesoReal: "19 kg",
-      recolector: "María López",
-      origen: "Usuario",
-      nombreOrigen: "Juan Martínez",
-      fecha: "Ayer, 4:30 PM",
-      pago: "$152",
-      estado: "pagado",
-    },
-    {
-      id: 5,
-      tipo: "Papel",
-      cantidad: "25 kg",
-      pesoReal: "25 kg",
-      recolector: "Pedro Sánchez",
-      origen: "Empresa",
-      nombreOrigen: "Oficinas ABC",
-      fecha: "Ayer, 2:15 PM",
-      pago: "$200",
-      estado: "pagado",
-    },
-  ])
+  // Función para parsear metadata
+  const parseMetadata = (metadata: string) => {
+    try {
+      const parsed = JSON.parse(metadata)
+      return {
+        direccion: parsed.direccion || "",
+        fecha: parsed.fecha || "",
+        hora: parsed.hora || "",
+        notas: parsed.notas || "",
+      }
+    } catch {
+      return {
+        direccion: "",
+        fecha: "",
+        hora: "",
+        notas: "",
+      }
+    }
+  }
+
+  // Separar entregas por estado
+  const solicitudesPendientes = deliveries
+    .filter(({ delivery }) => delivery.status === DeliveryStatus.Pending)
+    .map(({ id, delivery }) => {
+      const metadata = parseMetadata(delivery.metadata)
+      const fecha = delivery.createdAt ? new Date(Number(delivery.createdAt) * 1000).toLocaleString('es-MX') : ""
+      const materialName = materialNames[delivery.materialType.toLowerCase()] || delivery.materialType
+      
+      const pagoAmount = delivery.paymentToken === PaymentToken.ETH
+        ? formatEther(delivery.paymentAmount)
+        : delivery.paymentAmount.toString()
+
+      const pagoDisplay = delivery.paymentToken === PaymentToken.ETH
+        ? `${pagoAmount} ETH`
+        : delivery.paymentToken === PaymentToken.USDC
+        ? `${Number(pagoAmount) / 1e6} USDC`
+        : `${formatEther(delivery.paymentAmount)} MXNB`
+
+      return {
+        id: Number(id),
+        tipo: materialName,
+        cantidad: `${delivery.amount.toString()} kg`,
+        fecha: fecha,
+        pago: pagoDisplay,
+        deliveryId: id,
+        delivery: delivery,
+        userAddress: delivery.user,
+      }
+    })
+
+  const enVerificacion = deliveries
+    .filter(({ delivery }) => delivery.status === DeliveryStatus.Pending && delivery.validatedAt === 0n)
+    .map(({ id, delivery }) => {
+      const metadata = parseMetadata(delivery.metadata)
+      const fecha = delivery.createdAt ? new Date(Number(delivery.createdAt) * 1000).toLocaleString('es-MX') : ""
+      const materialName = materialNames[delivery.materialType.toLowerCase()] || delivery.materialType
+      
+      const pagoAmount = delivery.paymentToken === PaymentToken.ETH
+        ? formatEther(delivery.paymentAmount)
+        : delivery.paymentAmount.toString()
+
+      const pagoDisplay = delivery.paymentToken === PaymentToken.ETH
+        ? `${pagoAmount} ETH`
+        : delivery.paymentToken === PaymentToken.USDC
+        ? `${Number(pagoAmount) / 1e6} USDC`
+        : `${formatEther(delivery.paymentAmount)} MXNB`
+
+      return {
+        id: Number(id),
+        tipo: materialName,
+        cantidad: `${delivery.amount.toString()} kg`,
+        fecha: fecha,
+        pagoCalculado: pagoDisplay,
+        deliveryId: id,
+        delivery: delivery,
+        userAddress: delivery.user,
+      }
+    })
+
+  const completadas = deliveries
+    .filter(({ delivery }) => delivery.status === DeliveryStatus.Validated)
+    .map(({ id, delivery }) => {
+      const metadata = parseMetadata(delivery.metadata)
+      const fecha = delivery.validatedAt ? new Date(Number(delivery.validatedAt) * 1000).toLocaleString('es-MX') : ""
+      const materialName = materialNames[delivery.materialType.toLowerCase()] || delivery.materialType
+      
+      const pagoAmount = delivery.paymentToken === PaymentToken.ETH
+        ? formatEther(delivery.paymentAmount)
+        : delivery.paymentAmount.toString()
+
+      const pagoDisplay = delivery.paymentToken === PaymentToken.ETH
+        ? `${pagoAmount} ETH`
+        : delivery.paymentToken === PaymentToken.USDC
+        ? `${Number(pagoAmount) / 1e6} USDC`
+        : `${formatEther(delivery.paymentAmount)} MXNB`
+
+      return {
+        id: Number(id),
+        tipo: materialName,
+        pesoReal: `${delivery.amount.toString()} kg`,
+        fecha: fecha,
+        pago: pagoDisplay,
+        estado: "pagado",
+        deliveryId: id,
+        delivery: delivery,
+        userAddress: delivery.user,
+      }
+    })
 
   return (
     <div className="min-h-screen bg-background">
@@ -199,112 +267,137 @@ export default function CentroDashboard() {
 
           {/* Solicitudes Pendientes */}
           <TabsContent value="pendientes" className="space-y-4">
-            {solicitudesPendientes.map((solicitud) => (
-              <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                      <Package className="w-6 h-6 text-accent" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">{solicitud.cantidad}</p>
-                      <div className="flex items-center gap-4 text-sm">
-                        <Badge variant="secondary">{solicitud.origen}</Badge>
-                        <span className="text-muted-foreground">{solicitud.nombreOrigen}</span>
+            {isLoading || checkingCenter ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">Cargando solicitudes...</p>
+              </Card>
+            ) : !address || !isRecyclingCenter ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">
+                  {!address 
+                    ? "Conecta tu wallet para ver las solicitudes de tu centro."
+                    : "Tu wallet no está registrada como centro autorizado. Contacta al administrador."}
+                </p>
+              </Card>
+            ) : solicitudesPendientes.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">No hay solicitudes pendientes en este momento.</p>
+              </Card>
+            ) : (
+              solicitudesPendientes.map((solicitud) => (
+                <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                        <Package className="w-6 h-6 text-accent" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
+                        <p className="text-sm text-muted-foreground mb-2">{solicitud.cantidad}</p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <Badge variant="secondary">Usuario</Badge>
+                          <span className="text-muted-foreground">{solicitud.userAddress.slice(0, 6)}...{solicitud.userAddress.slice(-4)}</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-accent">{solicitud.pago}</p>
+                      <p className="text-xs text-muted-foreground">Pago estimado</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-accent">{solicitud.pago}</p>
-                    <p className="text-xs text-muted-foreground">Pago estimado</p>
+
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <Clock className="w-4 h-4" />
+                    <span>{solicitud.fecha}</span>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                  <Truck className="w-4 h-4" />
-                  <span>Recolector: {solicitud.recolector}</span>
-                  <span className="mx-2">•</span>
-                  <span>{solicitud.fecha}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Button variant="outline" size="sm">
-                    Ver Detalles
-                  </Button>
-                  <Button size="sm" className="bg-accent text-accent-foreground" asChild>
-                    <Link href={`/centro/verificar/${solicitud.id}`}>Aceptar y Verificar</Link>
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/centro/verificar/${solicitud.deliveryId.toString()}`}>Ver Detalles</Link>
+                    </Button>
+                    <Button size="sm" className="bg-accent text-accent-foreground" asChild>
+                      <Link href={`/centro/verificar/${solicitud.deliveryId.toString()}`}>Aceptar y Verificar</Link>
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
           </TabsContent>
 
           {/* En Verificación */}
           <TabsContent value="verificacion" className="space-y-4">
-            {enVerificacion.map((solicitud) => (
-              <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow border-primary/20">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Package className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
-                      <div className="flex items-center gap-3 text-sm mb-2">
-                        <span className="text-muted-foreground">Estimado: {solicitud.cantidad}</span>
-                        <span className="text-primary font-medium">Real: {solicitud.pesoReal}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <Badge variant="secondary">{solicitud.origen}</Badge>
-                        <span className="text-muted-foreground">{solicitud.nombreOrigen}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">{solicitud.pagoCalculado}</p>
-                    <p className="text-xs text-muted-foreground">Pago calculado</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                  <Truck className="w-4 h-4" />
-                  <span>Recolector: {solicitud.recolector}</span>
-                  <span className="mx-2">•</span>
-                  <span>{solicitud.fecha}</span>
-                </div>
-
-                <Button size="sm" className="w-full" asChild>
-                  <Link href={`/centro/verificar/${solicitud.id}`}>Continuar Verificación</Link>
-                </Button>
+            {enVerificacion.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">No hay solicitudes en verificación.</p>
               </Card>
-            ))}
+            ) : (
+              enVerificacion.map((solicitud) => (
+                <Card key={solicitud.id} className="p-6 hover:shadow-md transition-shadow border-primary/20">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Package className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
+                        <div className="flex items-center gap-3 text-sm mb-2">
+                          <span className="text-muted-foreground">Cantidad: {solicitud.cantidad}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <Badge variant="secondary">Usuario</Badge>
+                          <span className="text-muted-foreground">{solicitud.userAddress.slice(0, 6)}...{solicitud.userAddress.slice(-4)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-primary">{solicitud.pagoCalculado}</p>
+                      <p className="text-xs text-muted-foreground">Pago calculado</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <Clock className="w-4 h-4" />
+                    <span>{solicitud.fecha}</span>
+                  </div>
+
+                  <Button size="sm" className="w-full" asChild>
+                    <Link href={`/centro/verificar/${solicitud.deliveryId.toString()}`}>Continuar Verificación</Link>
+                  </Button>
+                </Card>
+              ))
+            )}
           </TabsContent>
 
           {/* Completadas */}
           <TabsContent value="completadas" className="space-y-4">
-            {completadas.map((solicitud) => (
-              <Card key={solicitud.id} className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <CheckCircle2 className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">{solicitud.pesoReal} procesados</p>
-                      <div className="flex items-center gap-4 text-sm">
-                        <Badge variant="secondary">{solicitud.origen}</Badge>
-                        <span className="text-muted-foreground">{solicitud.nombreOrigen}</span>
+            {completadas.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">No hay solicitudes completadas aún.</p>
+              </Card>
+            ) : (
+              completadas.map((solicitud) => (
+                <Card key={solicitud.id} className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                      <CheckCircle2 className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
+                      <div>
+                        <h3 className="font-semibold text-foreground mb-1">{solicitud.tipo}</h3>
+                        <p className="text-sm text-muted-foreground mb-2">{solicitud.pesoReal} procesados</p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <Badge variant="secondary">Usuario</Badge>
+                          <span className="text-muted-foreground">{solicitud.userAddress.slice(0, 6)}...{solicitud.userAddress.slice(-4)}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">{solicitud.fecha}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">{solicitud.fecha}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-primary">{solicitud.pago}</p>
+                      <Badge className="mt-2 bg-primary text-primary-foreground">Pagado</Badge>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-primary">{solicitud.pago}</p>
-                    <Badge className="mt-2 bg-primary text-primary-foreground">Pagado</Badge>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))
+            )}
           </TabsContent>
         </Tabs>
 

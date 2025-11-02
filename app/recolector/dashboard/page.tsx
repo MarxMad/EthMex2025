@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
+import { usePendingDeliveries } from "@/lib/hooks/use-recycling-contract"
+import { PaymentToken } from "@/lib/contracts"
+import { formatEther } from "viem"
 import {
   Recycle,
   MapPin,
@@ -21,41 +24,69 @@ import {
 
 export default function RecolectorDashboard() {
   const [disponible, setDisponible] = useState(true)
-  const [solicitudes] = useState([
-    {
-      id: 1,
-      tipo: "Plástico PET",
-      cantidad: "15 kg",
-      distancia: "1.2 km",
-      tiempo: "5 min",
-      pago: "$120",
-      direccion: "Av. Reforma 123, CDMX",
-      usuario: "María González",
-      urgente: false,
-    },
-    {
-      id: 2,
-      tipo: "Cartón",
-      cantidad: "30 kg",
-      distancia: "2.8 km",
-      tiempo: "12 min",
-      pago: "$240",
-      direccion: "Calle Juárez 456, CDMX",
-      usuario: "Empresa XYZ",
-      urgente: true,
-    },
-    {
-      id: 3,
-      tipo: "Aluminio",
-      cantidad: "8 kg",
-      distancia: "0.8 km",
-      tiempo: "3 min",
-      pago: "$96",
-      direccion: "Av. Insurgentes 789, CDMX",
-      usuario: "Carlos Pérez",
-      urgente: false,
-    },
-  ])
+  const { deliveries, isLoading } = usePendingDeliveries()
+
+  // Mapeo de materiales para mostrar
+  const materialNames: Record<string, string> = {
+    plastico: "Plástico PET",
+    carton: "Cartón",
+    vidrio: "Vidrio",
+    aluminio: "Aluminio",
+    papel: "Papel",
+    electronico: "Electrónico",
+    electronicos: "Electrónicos",
+  }
+
+  // Función para parsear metadata
+  const parseMetadata = (metadata: string) => {
+    try {
+      const parsed = JSON.parse(metadata)
+      return {
+        direccion: parsed.direccion || "",
+        fecha: parsed.fecha || "",
+        hora: parsed.hora || "",
+        notas: parsed.notas || "",
+      }
+    } catch {
+      return {
+        direccion: "",
+        fecha: "",
+        hora: "",
+        notas: "",
+      }
+    }
+  }
+
+  // Convertir entregas del contrato a formato para mostrar
+  const solicitudes = deliveries.map(({ id, delivery }) => {
+    const metadata = parseMetadata(delivery.metadata)
+    const materialName = materialNames[delivery.materialType.toLowerCase()] || delivery.materialType
+    
+    const pagoAmount = delivery.paymentToken === PaymentToken.ETH
+      ? formatEther(delivery.paymentAmount)
+      : delivery.paymentAmount.toString()
+
+    const pagoDisplay = delivery.paymentToken === PaymentToken.ETH
+      ? `${pagoAmount} ETH`
+      : delivery.paymentToken === PaymentToken.USDC
+      ? `${Number(pagoAmount) / 1e6} USDC`
+      : `${formatEther(delivery.paymentAmount)} MXNB`
+
+    // Formatear dirección del usuario (primeros 6 y últimos 4 caracteres)
+    const userAddress = `${delivery.user.slice(0, 6)}...${delivery.user.slice(-4)}`
+
+    return {
+      id: Number(id),
+      tipo: materialName,
+      cantidad: `${delivery.amount.toString()} kg`,
+      pago: pagoDisplay,
+      direccion: metadata.direccion || "Dirección no especificada",
+      usuario: userAddress,
+      urgente: false, // Podrías calcular esto basado en fecha/hora
+      deliveryId: id,
+      delivery: delivery,
+    }
+  })
 
   const [historial] = useState([
     {
@@ -239,15 +270,22 @@ export default function RecolectorDashboard() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/recolector/solicitud/${solicitud.id}`}>Ver Detalles</Link>
+                      <Link href={`/recolector/entrega/${solicitud.deliveryId.toString()}`}>Ver Detalles</Link>
                     </Button>
-                    <Button size="sm" className="bg-primary">
-                      Aceptar Recolección
+                    <Button 
+                      size="sm" 
+                      className="bg-primary"
+                      asChild
+                    >
+                      <Link href={`/recolector/entrega/${solicitud.deliveryId.toString()}`}>
+                        Aceptar Recolección
+                      </Link>
                     </Button>
                   </div>
                 </Card>
               ))}
             </div>
+            )}
           </div>
         )}
 
