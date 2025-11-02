@@ -31,16 +31,23 @@ export function useCreateDelivery() {
   ) => {
     try {
       // El contrato calcula el precio automáticamente, pero necesitamos enviar value si es ETH
-      const value = paymentToken === PaymentToken.ETH && valueAmount 
+      // Solo enviar value si es ETH y se proporciona un monto
+      const value = paymentToken === PaymentToken.ETH && valueAmount && parseFloat(valueAmount) > 0
         ? parseEther(valueAmount)
-        : 0n
+        : undefined // undefined en lugar de 0n para funciones payable cuando no es ETH
 
       await writeContract({
         address: RECYCLING_CONTRACT_ADDRESS,
         abi: RECYCLING_CONTRACT_ABI,
         functionName: 'createDelivery',
-        args: [recyclingCenter, materialType, amount, paymentToken, metadata],
-        value,
+        args: [
+          recyclingCenter.toLowerCase() as `0x${string}`, // Normalizar dirección
+          materialType,
+          amount,
+          paymentToken,
+          metadata || '', // Asegurar string vacío si es undefined
+        ],
+        ...(value !== undefined && { value }), // Solo incluir value si se define
       })
     } catch (err) {
       console.error('Error creating delivery:', err)
