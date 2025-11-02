@@ -21,6 +21,63 @@ import { RecyclingCenterSelector } from "@/components/recycling-center-selector"
 import { Logo } from "@/components/logo"
 import { RoleGuard } from "@/components/role-guard"
 
+// Componente para mostrar cada opción de material con su precio
+function MaterialOption({
+  materialType,
+  label,
+  isSelected,
+  paymentToken,
+  centerAddress,
+}: {
+  materialType: string
+  label: string
+  isSelected: boolean
+  paymentToken: PaymentToken
+  centerAddress: `0x${string}` | undefined
+}) {
+  const { price, isLoading } = useMaterialPrice(
+    materialType,
+    paymentToken,
+    centerAddress
+  )
+  const hasPrice = price && price > 0n
+  
+  return (
+    <div className={`flex items-center space-x-2 border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer ${
+      hasPrice 
+        ? isSelected
+          ? 'border-primary bg-primary/10' 
+          : 'border-primary/30 bg-primary/5'
+        : 'border-border opacity-60'
+    }`}>
+      <RadioGroupItem value={materialType} id={materialType} />
+      <Label htmlFor={materialType} className="cursor-pointer flex-1 flex items-center justify-between">
+        <span>{label}</span>
+        {centerAddress && (
+          <span className={`text-xs ml-2 ${
+            hasPrice 
+              ? 'text-green-600 dark:text-green-400 font-medium' 
+              : isLoading
+              ? 'text-muted-foreground'
+              : 'text-red-600 dark:text-red-400'
+          }`}>
+            {isLoading 
+              ? 'Cargando...'
+              : hasPrice 
+              ? paymentToken === PaymentToken.ETH
+                ? `${formatEther(price)} ETH/kg`
+                : paymentToken === PaymentToken.USDC
+                ? `${Number(price) / 1e6} USDC/kg`
+                : `${formatEther(price)} MXNB/kg`
+              : 'Sin precio'
+            }
+          </span>
+        )}
+      </Label>
+    </div>
+  )
+}
+
 export default function SolicitarRecoleccionPage() {
   const router = useRouter()
   const { address, isConnected } = useAccount()
@@ -321,44 +378,59 @@ export default function SolicitarRecoleccionPage() {
                 onValueChange={(value) => setFormData({ ...formData, tipoMaterial: value })}
               >
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <RadioGroupItem value="plastico" id="plastico" />
-                    <Label htmlFor="plastico" className="cursor-pointer flex-1">
-                      Plástico PET
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <RadioGroupItem value="carton" id="carton" />
-                    <Label htmlFor="carton" className="cursor-pointer flex-1">
-                      Cartón
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <RadioGroupItem value="aluminio" id="aluminio" />
-                    <Label htmlFor="aluminio" className="cursor-pointer flex-1">
-                      Aluminio
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <RadioGroupItem value="vidrio" id="vidrio" />
-                    <Label htmlFor="vidrio" className="cursor-pointer flex-1">
-                      Vidrio
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <RadioGroupItem value="papel" id="papel" />
-                    <Label htmlFor="papel" className="cursor-pointer flex-1">
-                      Papel
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                    <RadioGroupItem value="electronico" id="electronico" />
-                    <Label htmlFor="electronico" className="cursor-pointer flex-1">
-                      Electrónico
-                    </Label>
-                  </div>
+                  {[
+                    { value: "plastico", label: "Plástico PET" },
+                    { value: "carton", label: "Cartón" },
+                    { value: "aluminio", label: "Aluminio" },
+                    { value: "vidrio", label: "Vidrio" },
+                    { value: "papel", label: "Papel" },
+                    { value: "electronico", label: "Electrónico" },
+                  ].map((material) => (
+                    <MaterialOption
+                      key={material.value}
+                      materialType={material.value}
+                      label={material.label}
+                      isSelected={formData.tipoMaterial === material.value}
+                      paymentToken={paymentToken}
+                      centerAddress={selectedCenter ? (selectedCenter as `0x${string}`) : undefined}
+                    />
+                  ))}
                 </div>
               </RadioGroup>
+              {selectedCenter && formData.tipoMaterial && (
+                <Alert className={`mt-2 ${
+                  materialPrice && materialPrice > 0n 
+                    ? 'border-green-500/20 bg-green-500/5' 
+                    : 'border-yellow-500/20 bg-yellow-500/5'
+                }`}>
+                  <AlertCircle className={`h-4 w-4 ${
+                    materialPrice && materialPrice > 0n 
+                      ? 'text-green-600' 
+                      : 'text-yellow-600'
+                  }`} />
+                  <AlertDescription className={`text-xs ${
+                    materialPrice && materialPrice > 0n 
+                      ? 'text-green-700 dark:text-green-400' 
+                      : 'text-yellow-700 dark:text-yellow-400'
+                  }`}>
+                    {materialPrice && materialPrice > 0n ? (
+                      <>
+                        <strong>Precio configurado:</strong> {paymentToken === PaymentToken.ETH 
+                          ? `${formatEther(materialPrice)} ETH/kg`
+                          : paymentToken === PaymentToken.USDC
+                          ? `${Number(materialPrice) / 1e6} USDC/kg`
+                          : `${formatEther(materialPrice)} MXNB/kg`
+                        } para {formData.tipoMaterial}
+                      </>
+                    ) : (
+                      <>
+                        <strong>⚠️ Precio no configurado:</strong> Este material aún no tiene precio configurado para este centro. 
+                        Contacta al centro o selecciona otro material.
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
 
             {/* Cantidad Estimada */}
