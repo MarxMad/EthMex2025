@@ -21,6 +21,7 @@ import {
   Package,
   User,
   LogOut,
+  Recycle,
 } from "lucide-react"
 
 export default function UsuarioDashboard() {
